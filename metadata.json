@@ -1,0 +1,6 @@
+{
+  "name": "Curated Index",
+  "description": "A minimalist personal resource directory for design tools, AI utilities, prompts, and notes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
