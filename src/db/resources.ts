@@ -98,3 +98,26 @@ export async function deleteResource(id: number) {
     throw new Error('Failed to delete resource.', { cause: error });
   }
 }
+
+// Returns the top canonical tags already used in the directory so AI classification reuses them.
+export async function getExistingTagVocabulary(limit = 60): Promise<string[]> {
+  try {
+    const rows = await db.select({ tags: resources.tags }).from(resources);
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      for (const tag of row.tags) {
+        const clean = tag.trim().toLowerCase();
+        if (clean) {
+          counts.set(clean, (counts.get(clean) ?? 0) + 1);
+        }
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, limit)
+      .map(([tag]) => tag);
+  } catch (error) {
+    console.error('Database query failed (getExistingTagVocabulary):', error);
+    return [];
+  }
+}

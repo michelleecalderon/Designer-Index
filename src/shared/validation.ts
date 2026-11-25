@@ -6,6 +6,7 @@ import {
   type ResourceItemType,
   type ResourcePricing,
 } from './constants.ts';
+import { normalizeTags } from './tags.ts';
 
 export interface ValidatedResourcePayload {
   itemType: ResourceItemType;
@@ -68,17 +69,12 @@ export function validateResourcePayload(
 
   let tags: string[] = [];
   if (Array.isArray(body.tags)) {
-    tags = body.tags
-      .filter((t): t is string => typeof t === 'string')
-      .map((t) => t.trim().toLowerCase().replace(/^#/, ''))
-      .filter(Boolean)
-      .slice(0, 10);
+    tags = normalizeTags(
+      body.tags.filter((t): t is string => typeof t === 'string'),
+      4
+    );
   } else if (typeof body.tags === 'string') {
-    tags = body.tags
-      .split(',')
-      .map((t) => t.trim().toLowerCase().replace(/^#/, ''))
-      .filter(Boolean)
-      .slice(0, 10);
+    tags = normalizeTags(body.tags, 4);
   }
 
   const rawUrl = typeof body.url === 'string' ? body.url.trim() : '';

@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AlertTriangle, Eye, EyeOff, Loader2, Wand2, X } from 'lucide-react';
 import {
   CATEGORIES,
   ITEM_TYPES,
@@ -9,6 +9,7 @@ import {
   type ResourceItemType,
   type ResourcePricing,
 } from '../shared/constants.ts';
+import { normalizeUrlForCompare } from '../shared/tags.ts';
 
 export interface ResourceFormValues {
   itemType: ResourceItemType;
@@ -22,11 +23,25 @@ export interface ResourceFormValues {
   isPublic: boolean;
 }
 
+export interface ClassifiedDraft {
+  item_type: ResourceItemType;
+  title: string;
+  description: string;
+  category: ResourceCategory;
+  pricing: ResourcePricing;
+  tags: string[];
+  url: string | null;
+  content: string | null;
+  metadataNote?: string | null;
+}
+
 interface ResourceModalProps {
   open: boolean;
   editingItem: ResourceItem | null;
+  existingResources: Array<Pick<ResourceItem, 'id' | 'title' | 'url'>>;
   onClose: () => void;
   onSave: (values: ResourceFormValues, editingId?: number) => Promise<void>;
+  onClassify: (input: string) => Promise<ClassifiedDraft>;
 }
 
 const DEFAULT_FORM: ResourceFormValues = {
@@ -42,21 +57,41 @@ const DEFAULT_FORM: ResourceFormValues = {
 };
 
 /**
- * Modal form for Creating or Updating a directory resource (link, prompt, or note).
+ * Modal form for Creating or Updating a directory resource (link, prompt, or note),
+ * including the server-powered AI "Magic Paste" auto-classifier.
  */
 export function ResourceModal({
   open,
   editingItem,
+  existingResources,
   onClose,
   onSave,
+  onClassify,
 }: ResourceModalProps) {
   const [form, setForm] = useState<ResourceFormValues>(DEFAULT_FORM);
+  const [magicInput, setMagicInput] = useState('');
+  const [classifying, setClassifying] = useState(false);
+  const [aiStatusNote, setAiStatusNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const duplicateMatch = useMemo(() => {
+    const normalizedInput = normalizeUrlForCompare(form.url);
+    if (!normalizedInput) return null;
+    return (
+      existingResources.find(
+        (row) =>
+          row.id !== editingItem?.id &&
+          normalizeUrlForCompare(row.url) === normalizedInput
+      ) ?? null
+    );
+  }, [form.url, existingResources, editingItem]);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setMagicInput('');
+    setAiStatusNote(null);
     if (editingItem) {
       setForm({
         itemType: editingItem.itemType,
@@ -84,6 +119,45 @@ export function ResourceModal({
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const handleMagicClassify = async () => {
+    const trimmed = magicInput.trim();
+    if (!trimmed) {
+      setError('Paste a URL, raw prompt, or note first.');
+      return;
+    }
+
+    setError(null);
+    setAiStatusNote(null);
+    setClassifying(true);
+    try {
+      const result = await onClassify(trimmed);
+      setForm((prev) => ({
+        ...prev,
+        itemType: result.item_type,
+        title: result.title,
+        description: result.description,
+        category: result.category,
+        pricing: result.pricing,
+        tags: result.tags.join(', '),
+        url: result.url ?? '',
+        content: result.content ?? '',
+      }));
+      setAiStatusNote(
+        result.metadataNote
+          ? `Auto-filled (${result.metadataNote}) Review the fields below before saving.`
+          : 'Auto-filled with AI. Review the fields and visibility toggle below before saving.'
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to classify right now. You can still fill the fields manually.'
+      );
+    } finally {
+      setClassifying(false);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -124,6 +198,56 @@ export function ResourceModal({
           </button>
         </div>
 
+        {/* Magic Paste section: paste anything and let Gemini pre-fill the form */}
+        {!editingItem && (
+          <div className="mt-5 p-4 rounded-xl bg-[#FAFAFA] border border-[#E5E5E5]">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <label
+                htmlFor="magic-paste-input"
+                className="text-xs font-medium text-[#111111]"
+              >
+                Magic Paste
+              </label>
+              <span className="text-[11px] text-[#737373]">
+                URL, prompt, or rough note
+              </span>
+            </div>
+
+            <textarea
+              id="magic-paste-input"
+              rows={2}
+              value={magicInput}
+              onChange={(e) => setMagicInput(e.target.value)}
+              placeholder="Paste any link (https://...), reusable prompt, or quick note…"
+              className="w-full p-2.5 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] placeholder:text-[#A3A3A3] resize-y"
+            />
+
+            <div className="mt-2.5 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-[#737373]">
+                Detects type, category, pricing, summary, and tags automatically.
+              </p>
+              <button
+                type="button"
+                onClick={handleMagicClassify}
+                disabled={classifying || !magicInput.trim()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors whitespace-nowrap shrink-0 disabled:opacity-45 cursor-pointer"
+              >
+                {classifying ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                    <span>Classifying…</span>
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Auto-fill with AI</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           {error && (
             <div
@@ -134,7 +258,12 @@ export function ResourceModal({
             </div>
           )}
 
-          {/* Item type segmented selector */}
+          {aiStatusNote && (
+            <div className="p-3 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] text-xs text-[#262626]">
+              {aiStatusNote}
+            </div>
+          )}
+
           <div>
             <span className="block text-xs font-medium text-[#525252] mb-1.5">
               Type
@@ -171,7 +300,6 @@ export function ResourceModal({
             </div>
           </div>
 
-          {/* Title */}
           <div>
             <label
               htmlFor="resource-title"
@@ -190,7 +318,6 @@ export function ResourceModal({
             />
           </div>
 
-          {/* Description */}
           <div>
             <label
               htmlFor="resource-description"
@@ -211,7 +338,6 @@ export function ResourceModal({
             />
           </div>
 
-          {/* Category + Pricing */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label
@@ -266,7 +392,6 @@ export function ResourceModal({
             </div>
           </div>
 
-          {/* URL (required for link, optional for note) */}
           {form.itemType !== 'prompt' && (
             <div>
               <label
@@ -286,10 +411,21 @@ export function ResourceModal({
                 placeholder="https://example.com"
                 className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] font-mono"
               />
+              {duplicateMatch && (
+                <div
+                  role="status"
+                  className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-[#FFFBEB] border border-[#FDE68A] text-xs text-[#92400E]"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                  <span>
+                    This URL already exists in your directory under{' '}
+                    <strong className="font-medium">“{duplicateMatch.title}”</strong>.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Content (prompt text or expandable note body) */}
           {form.itemType !== 'link' && (
             <div>
               <label
@@ -318,25 +454,26 @@ export function ResourceModal({
             </div>
           )}
 
-          {/* Tags */}
           <div>
             <label
               htmlFor="resource-tags"
               className="block text-xs font-medium text-[#525252] mb-1.5"
             >
-              Tags (comma-separated, lowercase)
+              Tags (comma-separated, max 4 canonical tags)
             </label>
             <input
               id="resource-tags"
               type="text"
               value={form.tags}
               onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
-              placeholder="ui, typography, figma"
+              placeholder="layout, typography, figma"
               className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111]"
             />
+            <p className="mt-1 text-[11px] text-[#737373]">
+              Near-duplicates and compound tags automatically normalize on save (e.g. layout-tips → layout, tips).
+            </p>
           </div>
 
-          {/* Public / Private visibility toggle */}
           <div className="pt-2">
             <button
               type="button"
@@ -369,7 +506,6 @@ export function ResourceModal({
             </button>
           </div>
 
-          {/* Actions */}
           <div className="pt-4 border-t border-[#E5E5E5] flex items-center justify-end gap-3">
             <button
               type="button"

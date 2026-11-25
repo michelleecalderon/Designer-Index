@@ -1,4 +1,5 @@
 import { CATEGORIES } from '../shared/constants.ts';
+import { getCategoryAccent } from '../shared/theme.ts';
 
 interface CategorySidebarProps {
   selectedCategory: string;
@@ -8,7 +9,8 @@ interface CategorySidebarProps {
 }
 
 /**
- * Clean vertical category index for desktop viewports with right-aligned tabular counts.
+ * Clean vertical category index for desktop viewports with right-aligned tabular counts
+ * and distinct accent highlights when a category is selected.
  */
 export function CategorySidebar({
   selectedCategory,
@@ -26,10 +28,10 @@ export function CategorySidebar({
           <button
             type="button"
             onClick={() => onSelectCategory('All')}
-            className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors duration-150 text-left cursor-pointer ${
+            className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-colors duration-150 text-left cursor-pointer ${
               selectedCategory === 'All'
-                ? 'bg-[#111111] text-[#FAFAFA] font-medium'
-                : 'text-[#525252] hover:text-[#111111] hover:bg-[#F2F2F2]'
+                ? 'bg-[#111111] text-[#FAFAFA] border-[#111111] font-medium'
+                : 'text-[#525252] border-transparent hover:text-[#111111] hover:bg-[#F2F2F2]'
             }`}
           >
             <span className="truncate">All Resources</span>
@@ -45,21 +47,22 @@ export function CategorySidebar({
           {CATEGORIES.map((category) => {
             const count = categoryCounts[category] ?? 0;
             const active = selectedCategory === category;
+            const accent = getCategoryAccent(category);
             return (
               <button
                 key={category}
                 type="button"
                 onClick={() => onSelectCategory(category)}
-                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg transition-colors duration-150 text-left cursor-pointer ${
+                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-colors duration-150 text-left cursor-pointer ${
                   active
-                    ? 'bg-[#111111] text-[#FAFAFA] font-medium'
-                    : 'text-[#525252] hover:text-[#111111] hover:bg-[#F2F2F2]'
+                    ? accent.sidebarActive
+                    : 'text-[#525252] border-transparent hover:text-[#111111] hover:bg-[#F2F2F2]'
                 }`}
               >
                 <span className="truncate">{category}</span>
                 <span
                   className={`font-mono text-xs tabular-nums ${
-                    active ? 'text-[#D4D4D4]' : 'text-[#A3A3A3]'
+                    active ? accent.sidebarCount : 'text-[#A3A3A3]'
                   }`}
                 >
                   {count}

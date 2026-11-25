@@ -4,20 +4,25 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LogOut, Plus } from 'lucide-react';
+import { LogOut, Plus, Sparkles, X } from 'lucide-react';
 import { CategorySidebar } from './components/CategorySidebar.tsx';
 import {
   DirectoryToolbar,
   type PricingFilter,
+  type TypeFilter,
 } from './components/DirectoryToolbar.tsx';
 import { LoginView } from './components/LoginView.tsx';
 import { ResourceCard } from './components/ResourceCard.tsx';
+import { ResourceDetailModal } from './components/ResourceDetailModal.tsx';
 import {
   ResourceModal,
+  type ClassifiedDraft,
   type ResourceFormValues,
 } from './components/ResourceModal.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import type { ResourceItem } from './shared/constants.ts';
+import { normalizeTags } from './shared/tags.ts';
+import { getCategoryAccent } from './shared/theme.ts';
 
 function DirectoryApp() {
   const { isAdmin, authLoading, getToken, signOut } = useAuth();
@@ -28,11 +33,20 @@ function DirectoryApp() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [pricingFilter, setPricingFilter] = useState<PricingFilter>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
+  // Grounded AI semantic search state (triggered on Enter or "Ask AI")
+  const [aiMatchedIds, setAiMatchedIds] = useState<number[] | null>(null);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [aiSearching, setAiSearching] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ResourceItem | null>(null);
+  const [inspectingItem, setInspectingItem] = useState<ResourceItem | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -52,6 +66,9 @@ function DirectoryApp() {
         document.activeElement === searchInputRef.current
       ) {
         setSearchQuery('');
+        setAiMatchedIds(null);
+        setAiSummary(null);
+        setAiError(null);
         searchInputRef.current?.blur();
       }
     };
@@ -59,7 +76,6 @@ function DirectoryApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Fetches resources; when authenticated as Admin, passes Bearer token so private rows are included.
   const fetchResources = useCallback(async () => {
     if (authLoading) return;
     setLoading(true);
@@ -95,7 +111,73 @@ function DirectoryApp() {
     setPathname(to);
   };
 
-  // Handles Create (POST) and Update (PATCH) resource mutations for the admin.
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (aiMatchedIds !== null || aiError !== null) {
+      setAiMatchedIds(null);
+      setAiSummary(null);
+      setAiError(null);
+    }
+  };
+
+  const clearAISearch = () => {
+    setAiMatchedIds(null);
+    setAiSummary(null);
+    setAiError(null);
+  };
+
+  const handleTriggerAISearch = async () => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+
+    setAiSearching(true);
+    setAiError(null);
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (isAdmin) {
+        const token = await getToken();
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+      }
+
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: trimmed }),
+      });
+
+      const data = (await response.json()) as {
+        matchedIds?: number[];
+        summary?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !Array.isArray(data.matchedIds)) {
+        throw new Error(data.error || 'Could not complete AI search.');
+      }
+
+      setAiMatchedIds(data.matchedIds);
+      setAiSummary(data.summary ?? null);
+    } catch (err) {
+      setAiError(
+        err instanceof Error ? err.message : 'Unable to run AI search right now.'
+      );
+    } finally {
+      setAiSearching(false);
+    }
+  };
+
+  const handleTypeChange = (nextType: TypeFilter) => {
+    setTypeFilter(nextType);
+    // Prompts and notes typically use pricing "N/A"; clear pricing filter so they stay visible.
+    if (nextType === 'prompt' || nextType === 'note') {
+      setPricingFilter('All');
+    }
+  };
+
   const handleSaveResource = async (
     values: ResourceFormValues,
     editingId?: number
@@ -111,10 +193,7 @@ function DirectoryApp() {
       description: values.description,
       category: values.category,
       pricing: values.pricing,
-      tags: values.tags
-        .split(',')
-        .map((t) => t.trim().toLowerCase().replace(/^#/, ''))
-        .filter(Boolean),
+      tags: normalizeTags(values.tags, 4),
       url: values.url.trim() || null,
       content: values.content.trim() || null,
       isPublic: values.isPublic,
@@ -152,7 +231,6 @@ function DirectoryApp() {
     }
   };
 
-  // Handles Delete (DELETE) resource mutation for the admin.
   const handleDeleteResource = async (id: number) => {
     const token = await getToken();
     if (!token) return;
@@ -169,6 +247,33 @@ function DirectoryApp() {
     }
   };
 
+  const handleClassifyResource = async (input: string): Promise<ClassifiedDraft> => {
+    const token = await getToken();
+    if (!token) {
+      throw new Error('Your admin session has expired. Please sign in again.');
+    }
+
+    const response = await fetch('/api/classify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ input }),
+    });
+
+    const data = (await response.json()) as {
+      classified?: ClassifiedDraft;
+      error?: string;
+    };
+
+    if (!response.ok || !data.classified) {
+      throw new Error(data.error || 'Could not auto-fill from this input.');
+    }
+
+    return data.classified;
+  };
+
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const item of resources) {
@@ -177,15 +282,49 @@ function DirectoryApp() {
     return counts;
   }, [resources]);
 
+  const typeCounts = useMemo<Record<TypeFilter, number>>(() => {
+    const counts: Record<TypeFilter, number> = {
+      all: resources.length,
+      link: 0,
+      prompt: 0,
+      note: 0,
+    };
+    for (const item of resources) {
+      if (item.itemType === 'link') counts.link += 1;
+      else if (item.itemType === 'prompt') counts.prompt += 1;
+      else if (item.itemType === 'note') counts.note += 1;
+    }
+    return counts;
+  }, [resources]);
+
   const filteredResources = useMemo(() => {
+    // When AI semantic search results are active, rank strictly by AI-returned IDs
+    // while still honoring active type/category/tag/pricing filters.
+    const aiRank =
+      aiMatchedIds !== null
+        ? new Map(aiMatchedIds.map((id, index) => [id, index]))
+        : null;
+
     const normalizedQuery = searchQuery.trim().toLowerCase();
-    return resources.filter((item) => {
+
+    const matches = resources.filter((item) => {
+      if (typeFilter !== 'all' && item.itemType !== typeFilter) {
+        return false;
+      }
       if (selectedCategory !== 'All' && item.category !== selectedCategory) {
         return false;
       }
       if (pricingFilter !== 'All' && item.pricing !== pricingFilter) {
         return false;
       }
+      if (selectedTag && !item.tags.includes(selectedTag)) {
+        return false;
+      }
+
+      if (aiRank !== null) {
+        return aiRank.has(item.id);
+      }
+
       if (!normalizedQuery) return true;
 
       const haystack = [
@@ -202,17 +341,39 @@ function DirectoryApp() {
 
       return haystack.includes(normalizedQuery);
     });
-  }, [resources, searchQuery, pricingFilter, selectedCategory]);
+
+    if (aiRank !== null) {
+      return matches.sort(
+        (a, b) => (aiRank.get(a.id) ?? 999) - (aiRank.get(b.id) ?? 999)
+      );
+    }
+
+    return matches;
+  }, [
+    resources,
+    typeFilter,
+    selectedCategory,
+    pricingFilter,
+    selectedTag,
+    searchQuery,
+    aiMatchedIds,
+  ]);
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
+    typeFilter !== 'all' ||
     pricingFilter !== 'All' ||
-    selectedCategory !== 'All';
+    selectedCategory !== 'All' ||
+    selectedTag !== null ||
+    aiMatchedIds !== null;
 
   const resetFilters = () => {
     setSearchQuery('');
+    setTypeFilter('all');
     setPricingFilter('All');
     setSelectedCategory('All');
+    setSelectedTag(null);
+    clearAISearch();
   };
 
   if (pathname === '/login') {
@@ -222,7 +383,6 @@ function DirectoryApp() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-[#111111]">
       <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10 sm:py-14">
-        {/* Clean editorial header — /login remains hidden unless directly visited */}
         <header className="pb-8 border-b border-[#E5E5E5]">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <a
@@ -273,7 +433,6 @@ function DirectoryApp() {
           </p>
         </header>
 
-        {/* Main 2-column directory layout */}
         <div className="mt-8 flex flex-col lg:flex-row gap-8 lg:gap-10">
           <CategorySidebar
             selectedCategory={selectedCategory}
@@ -286,7 +445,13 @@ function DirectoryApp() {
             <DirectoryToolbar
               searchInputRef={searchInputRef}
               searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
+              onSearchChange={handleSearchChange}
+              onTriggerAISearch={handleTriggerAISearch}
+              aiSearching={aiSearching}
+              aiActive={aiMatchedIds !== null}
+              typeFilter={typeFilter}
+              onTypeChange={handleTypeChange}
+              typeCounts={typeCounts}
               pricingFilter={pricingFilter}
               onPricingChange={setPricingFilter}
               selectedCategory={selectedCategory}
@@ -295,15 +460,74 @@ function DirectoryApp() {
               totalCount={resources.length}
             />
 
-            <div className="mt-6 mb-4 flex items-center justify-between gap-4">
-              <p className="text-xs text-[#737373]">
-                {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
-                <span aria-hidden="true"> · </span>
+            {/* Grounded AI Search Banner or Error */}
+            {aiError && (
+              <div
+                role="alert"
+                className="mt-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B]"
+              >
+                <span>{aiError}</span>
+                <button
+                  type="button"
+                  onClick={() => setAiError(null)}
+                  className="p-1 hover:text-[#111111] cursor-pointer"
+                  aria-label="Dismiss AI search error"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+
+            {aiMatchedIds !== null && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#E5E5E5] text-xs text-[#262626]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-3.5 h-3.5 text-[#111111] shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    {aiSummary || `Matched ${filteredResources.length} stored items.`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearAISearch}
+                  className="text-xs font-medium text-[#111111] hover:underline underline-offset-4 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Exit AI search
+                </button>
+              </div>
+            )}
+
+            {/* Active results & tag summary */}
+            <div className="mt-5 mb-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#737373]">
+                <span
+                  className={
+                    selectedCategory === 'All'
+                      ? ''
+                      : getCategoryAccent(selectedCategory).cardCategoryText
+                  }
+                >
+                  {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
+                </span>
+                {selectedTag && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTag(null)}
+                      className="inline-flex items-center gap-1 font-medium text-[#111111] hover:underline underline-offset-4 cursor-pointer"
+                    >
+                      <span>#{selectedTag}</span>
+                      <X className="w-3 h-3" aria-hidden="true" />
+                    </button>
+                  </>
+                )}
+                <span aria-hidden="true">·</span>
                 <span className="font-mono tabular-nums">
                   {filteredResources.length}{' '}
                   {filteredResources.length === 1 ? 'item' : 'items'}
                 </span>
-              </p>
+              </div>
+
               {hasActiveFilters && (
                 <button
                   type="button"
@@ -316,11 +540,11 @@ function DirectoryApp() {
             </div>
 
             {loading && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-44 bg-white border border-[#E5E5E5] rounded-xl p-5 animate-pulse"
+                    className="h-[236px] bg-white border border-[#E5E5E5] rounded-xl p-5 animate-pulse"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-[#F0F0F0]" />
@@ -357,27 +581,51 @@ function DirectoryApp() {
                   No matching resources
                 </p>
                 <p className="text-sm text-[#737373] mb-5">
-                  Try clearing your search or switching category and pricing filters.
+                  {aiMatchedIds === null && searchQuery.trim()
+                    ? 'No exact keyword matches — press Enter or click Ask AI to search by meaning.'
+                    : 'Try clearing your search or switching type, category, and pricing filters.'}
                 </p>
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
-                    className="px-4 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors cursor-pointer"
-                  >
-                    Reset filters
-                  </button>
-                )}
+                <div className="flex items-center justify-center gap-3">
+                  {aiMatchedIds === null && searchQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={handleTriggerAISearch}
+                      disabled={aiSearching}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{aiSearching ? 'Searching…' : 'Ask AI'}</span>
+                    </button>
+                  )}
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="px-4 py-2 text-xs font-medium text-[#111111] border border-[#E5E5E5] bg-white rounded-lg hover:border-[#111111] transition-colors cursor-pointer"
+                    >
+                      Reset filters
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
             {!loading && !loadError && filteredResources.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
                 {filteredResources.map((item) => (
                   <ResourceCard
                     key={item.id}
                     item={item}
                     isAdmin={isAdmin}
+                    isCategoryHighlighted={
+                      selectedCategory !== 'All' &&
+                      selectedCategory === item.category
+                    }
+                    selectedTag={selectedTag}
+                    onTagClick={(tag) =>
+                      setSelectedTag((prev) => (prev === tag ? null : tag))
+                    }
+                    onInspect={(target) => setInspectingItem(target)}
                     onEdit={(target) => {
                       setEditingItem(target);
                       setModalOpen(true);
@@ -391,14 +639,35 @@ function DirectoryApp() {
         </div>
       </div>
 
+      <ResourceDetailModal
+        item={inspectingItem}
+        isAdmin={isAdmin}
+        isCategoryHighlighted={
+          Boolean(inspectingItem) &&
+          selectedCategory !== 'All' &&
+          selectedCategory === inspectingItem?.category
+        }
+        selectedTag={selectedTag}
+        onClose={() => setInspectingItem(null)}
+        onTagClick={(tag) =>
+          setSelectedTag((prev) => (prev === tag ? null : tag))
+        }
+        onEdit={(target) => {
+          setEditingItem(target);
+          setModalOpen(true);
+        }}
+      />
+
       <ResourceModal
         open={modalOpen}
         editingItem={editingItem}
+        existingResources={resources}
         onClose={() => {
           setModalOpen(false);
           setEditingItem(null);
         }}
         onSave={handleSaveResource}
+        onClassify={handleClassifyResource}
       />
     </div>
   );
