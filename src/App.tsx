@@ -381,9 +381,9 @@ function DirectoryApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-[#111111]">
+    <div className="min-h-screen bg-canvas text-ink">
       <div className="max-w-6xl mx-auto px-6 sm:px-8 py-10 sm:py-14">
-        <header className="pb-8 border-b border-[#E5E5E5]">
+        <header className="pb-8 border-b border-hairline">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <a
               href="/"
@@ -392,13 +392,13 @@ function DirectoryApp() {
                 resetFilters();
                 navigate('/');
               }}
-              className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-[#111111] whitespace-nowrap shrink-0"
+              className="font-display text-2xl sm:text-3xl font-semibold tracking-tight text-ink whitespace-nowrap shrink-0 rounded-sm"
             >
               Curated Index
             </a>
 
             <div className="flex items-center gap-3 shrink-0">
-              <span className="text-xs font-mono text-[#737373] tabular-nums whitespace-nowrap">
+              <span className="text-xs font-mono text-ink-muted tabular-nums whitespace-nowrap">
                 {loading ? 'Loading…' : `${resources.length} resources`}
               </span>
 
@@ -410,7 +410,7 @@ function DirectoryApp() {
                       setEditingItem(null);
                       setModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-ink text-card rounded-lg hover:bg-ink-secondary transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Add Resource</span>
@@ -418,7 +418,7 @@ function DirectoryApp() {
                   <button
                     type="button"
                     onClick={signOut}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#525252] hover:text-[#111111] border border-[#E5E5E5] bg-white rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-ink-secondary hover:text-ink border border-hairline bg-card rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
                     <span>Sign out</span>
@@ -428,7 +428,7 @@ function DirectoryApp() {
             </div>
           </div>
 
-          <p className="mt-2.5 max-w-2xl text-[15px] text-[#525252] leading-relaxed">
+          <p className="mt-2.5 max-w-2xl text-[15px] text-ink-secondary leading-relaxed">
             A minimalist personal directory of design tools, typography, AI utilities, prompts, and reference notes.
           </p>
         </header>
@@ -464,13 +464,13 @@ function DirectoryApp() {
             {aiError && (
               <div
                 role="alert"
-                className="mt-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B]"
+                className="mt-4 flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-danger/8 border border-danger/30 text-xs text-danger"
               >
                 <span>{aiError}</span>
                 <button
                   type="button"
                   onClick={() => setAiError(null)}
-                  className="p-1 hover:text-[#111111] cursor-pointer"
+                  className="p-1 text-danger hover:text-ink cursor-pointer"
                   aria-label="Dismiss AI search error"
                 >
                   <X className="w-3.5 h-3.5" aria-hidden="true" />
@@ -479,9 +479,9 @@ function DirectoryApp() {
             )}
 
             {aiMatchedIds !== null && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-white border border-[#E5E5E5] text-xs text-[#262626]">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-card border border-hairline text-xs text-ink-secondary">
                 <div className="flex items-center gap-2 min-w-0">
-                  <Sparkles className="w-3.5 h-3.5 text-[#111111] shrink-0" aria-hidden="true" />
+                  <Sparkles className="w-3.5 h-3.5 text-ink shrink-0" aria-hidden="true" />
                   <span className="truncate">
                     {aiSummary || `Matched ${filteredResources.length} stored items.`}
                   </span>
@@ -489,7 +489,7 @@ function DirectoryApp() {
                 <button
                   type="button"
                   onClick={clearAISearch}
-                  className="text-xs font-medium text-[#111111] hover:underline underline-offset-4 whitespace-nowrap shrink-0 cursor-pointer"
+                  className="text-xs font-medium text-ink hover:underline underline-offset-4 whitespace-nowrap shrink-0 cursor-pointer"
                 >
                   Exit AI search
                 </button>
@@ -498,11 +498,11 @@ function DirectoryApp() {
 
             {/* Active results & tag summary */}
             <div className="mt-5 mb-4 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#737373]">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
                 <span
                   className={
                     selectedCategory === 'All'
-                      ? ''
+                      ? 'text-ink-muted'
                       : getCategoryAccent(selectedCategory).cardCategoryText
                   }
                 >
@@ -514,7 +514,7 @@ function DirectoryApp() {
                     <button
                       type="button"
                       onClick={() => setSelectedTag(null)}
-                      className="inline-flex items-center gap-1 font-medium text-[#111111] hover:underline underline-offset-4 cursor-pointer"
+                      className="inline-flex items-center gap-1 font-medium text-ink hover:underline underline-offset-4 cursor-pointer"
                     >
                       <span>#{selectedTag}</span>
                       <X className="w-3 h-3" aria-hidden="true" />
@@ -522,7 +522,7 @@ function DirectoryApp() {
                   </>
                 )}
                 <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums">
+                <span className="font-mono tabular-nums text-ink-muted">
                   {filteredResources.length}{' '}
                   {filteredResources.length === 1 ? 'item' : 'items'}
                 </span>
@@ -532,7 +532,7 @@ function DirectoryApp() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="text-xs font-medium text-[#111111] hover:underline underline-offset-4 cursor-pointer"
+                  className="text-xs font-medium text-ink hover:underline underline-offset-4 cursor-pointer"
                 >
                   Reset filters
                 </button>
@@ -544,18 +544,18 @@ function DirectoryApp() {
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-[236px] bg-white border border-[#E5E5E5] rounded-xl p-5 animate-pulse"
+                    className="h-[236px] bg-card border border-hairline rounded-xl p-5 animate-pulse"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#F0F0F0]" />
+                      <div className="w-8 h-8 rounded-lg bg-raised" />
                       <div className="space-y-2 flex-1">
-                        <div className="h-4 w-32 bg-[#F0F0F0] rounded" />
-                        <div className="h-3 w-24 bg-[#F5F5F5] rounded" />
+                        <div className="h-4 w-32 bg-raised rounded" />
+                        <div className="h-3 w-24 bg-raised/70 rounded" />
                       </div>
                     </div>
                     <div className="mt-4 space-y-2">
-                      <div className="h-3 w-full bg-[#F5F5F5] rounded" />
-                      <div className="h-3 w-4/5 bg-[#F5F5F5] rounded" />
+                      <div className="h-3 w-full bg-raised/70 rounded" />
+                      <div className="h-3 w-4/5 bg-raised/70 rounded" />
                     </div>
                   </div>
                 ))}
@@ -563,12 +563,12 @@ function DirectoryApp() {
             )}
 
             {!loading && loadError && (
-              <div className="bg-white border border-[#E5E5E5] rounded-xl p-8 text-center">
-                <p className="text-sm text-[#525252] mb-4">{loadError}</p>
+              <div className="bg-card border border-hairline rounded-xl p-8 text-center">
+                <p className="text-sm text-danger mb-4">{loadError}</p>
                 <button
                   type="button"
                   onClick={fetchResources}
-                  className="px-4 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-medium bg-ink text-card rounded-lg hover:bg-ink-secondary transition-colors cursor-pointer"
                 >
                   Try again
                 </button>
@@ -576,11 +576,11 @@ function DirectoryApp() {
             )}
 
             {!loading && !loadError && filteredResources.length === 0 && (
-              <div className="bg-white border border-[#E5E5E5] rounded-xl p-10 text-center">
-                <p className="text-sm font-medium text-[#111111] mb-1">
+              <div className="bg-card border border-hairline rounded-xl p-10 text-center">
+                <p className="text-sm font-medium text-ink mb-1">
                   No matching resources
                 </p>
-                <p className="text-sm text-[#737373] mb-5">
+                <p className="text-sm text-ink-muted mb-5">
                   {aiMatchedIds === null && searchQuery.trim()
                     ? 'No exact keyword matches — press Enter or click Ask AI to search by meaning.'
                     : 'Try clearing your search or switching type, category, and pricing filters.'}
@@ -591,7 +591,7 @@ function DirectoryApp() {
                       type="button"
                       onClick={handleTriggerAISearch}
                       disabled={aiSearching}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-ink text-card rounded-lg hover:bg-ink-secondary transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
                       <span>{aiSearching ? 'Searching…' : 'Ask AI'}</span>
@@ -601,7 +601,7 @@ function DirectoryApp() {
                     <button
                       type="button"
                       onClick={resetFilters}
-                      className="px-4 py-2 text-xs font-medium text-[#111111] border border-[#E5E5E5] bg-white rounded-lg hover:border-[#111111] transition-colors cursor-pointer"
+                      className="px-4 py-2 text-xs font-medium text-ink border border-hairline bg-card rounded-lg hover:border-ink-secondary transition-colors cursor-pointer"
                     >
                       Reset filters
                     </button>

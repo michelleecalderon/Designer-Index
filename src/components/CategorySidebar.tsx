@@ -21,25 +21,21 @@ export function CategorySidebar({
   return (
     <aside className="hidden lg:block w-56 shrink-0">
       <div className="sticky top-8">
-        <p className="text-xs font-medium text-[#737373] mb-3 px-2.5">
+        <p className="text-xs font-medium text-ink-muted mb-3 px-2.5">
           Categories
         </p>
-        <nav aria-label="Resource categories" className="space-y-0.5">
+        <nav aria-label="Resource categories" className="space-y-1">
           <button
             type="button"
             onClick={() => onSelectCategory('All')}
-            className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-colors duration-150 text-left cursor-pointer ${
+            className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-all duration-150 text-left cursor-pointer ${
               selectedCategory === 'All'
-                ? 'bg-[#111111] text-[#FAFAFA] border-[#111111] font-medium'
-                : 'text-[#525252] border-transparent hover:text-[#111111] hover:bg-[#F2F2F2]'
+                ? 'bg-raised text-ink border-hairline font-semibold'
+                : 'text-ink-muted border-transparent hover:text-ink hover:bg-raised/60'
             }`}
           >
             <span className="truncate">All Resources</span>
-            <span
-              className={`font-mono text-xs tabular-nums ${
-                selectedCategory === 'All' ? 'text-[#D4D4D4]' : 'text-[#A3A3A3]'
-              }`}
-            >
+            <span className="font-mono text-xs tabular-nums text-ink-muted">
               {totalCount}
             </span>
           </button>
@@ -53,16 +49,16 @@ export function CategorySidebar({
                 key={category}
                 type="button"
                 onClick={() => onSelectCategory(category)}
-                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-colors duration-150 text-left cursor-pointer ${
+                className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 text-sm rounded-lg border transition-all duration-150 text-left cursor-pointer ${
                   active
                     ? accent.sidebarActive
-                    : 'text-[#525252] border-transparent hover:text-[#111111] hover:bg-[#F2F2F2]'
+                    : 'text-ink-muted border-transparent hover:text-ink hover:bg-raised/60'
                 }`}
               >
                 <span className="truncate">{category}</span>
                 <span
                   className={`font-mono text-xs tabular-nums ${
-                    active ? accent.sidebarCount : 'text-[#A3A3A3]'
+                    active ? accent.sidebarCount : 'text-ink-muted'
                   }`}
                 >
                   {count}

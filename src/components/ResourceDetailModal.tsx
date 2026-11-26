@@ -24,8 +24,8 @@ interface ResourceDetailModalProps {
 }
 
 /**
- * Expanded overlay reader for Prompts and Notes so long text never stretches
- * grid rows or creates vertical gaps between uniform cards.
+ * Expanded overlay reader for Prompts and Notes using the warm neutral ramp,
+ * raised prompt surface, muted pricing metadata, and #1F1B16 focus rings.
  */
 export function ResourceDetailModal({
   item,
@@ -83,7 +83,7 @@ export function ResourceDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[2px] p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 backdrop-blur-[2px] p-4 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="resource-detail-title"
@@ -91,11 +91,11 @@ export function ResourceDetailModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-white border border-[#E5E5E5] rounded-xl overflow-hidden shadow-sm">
+      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-card border border-hairline rounded-xl overflow-hidden shadow-sm">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-[#E5E5E5]">
+        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-hairline">
           <div className="min-w-0">
-            <div className="flex items-center gap-2 text-xs text-[#737373] mb-1.5">
+            <div className="flex items-center gap-2 text-xs text-ink-muted mb-1.5">
               {item.itemType === 'prompt' ? (
                 <>
                   <Terminal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -110,7 +110,7 @@ export function ResourceDetailModal({
               {!item.isPublic && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1 font-medium text-[#111111]">
+                  <span className="inline-flex items-center gap-1 font-medium text-ink">
                     <Lock className="w-3 h-3" aria-hidden="true" />
                     <span>Private</span>
                   </span>
@@ -119,7 +119,7 @@ export function ResourceDetailModal({
             </div>
             <h2
               id="resource-detail-title"
-              className="font-display text-lg sm:text-xl font-semibold text-[#111111] leading-snug"
+              className="font-display text-lg sm:text-xl font-semibold text-ink leading-snug"
             >
               {item.title}
             </h2>
@@ -130,7 +130,7 @@ export function ResourceDetailModal({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E5E5E5] bg-[#FAFAFA] hover:bg-[#111111] hover:text-[#FAFAFA] hover:border-[#111111] text-[#111111] transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-raised hover:bg-ink hover:text-card hover:border-ink text-ink transition-colors whitespace-nowrap cursor-pointer"
                 aria-live="polite"
               >
                 {copied ? (
@@ -154,7 +154,7 @@ export function ResourceDetailModal({
                   onClose();
                   onEdit(item);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-[#E5E5E5] bg-white hover:border-[#111111] text-[#525252] hover:text-[#111111] transition-colors whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-card hover:border-ink-secondary text-ink-secondary hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
               >
                 <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Edit</span>
@@ -165,7 +165,7 @@ export function ResourceDetailModal({
               type="button"
               onClick={onClose}
               aria-label="Close detail view"
-              className="p-1.5 text-[#737373] hover:text-[#111111] rounded-lg transition-colors cursor-pointer"
+              className="p-1.5 text-ink-muted hover:text-ink rounded-lg transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -174,17 +174,17 @@ export function ResourceDetailModal({
 
         {/* Scrollable reading body */}
         <div className="px-6 py-5 overflow-y-auto space-y-4">
-          <p className="text-[15px] text-[#525252] leading-relaxed max-w-prose">
+          <p className="text-[15px] text-ink-secondary leading-relaxed max-w-prose">
             {item.description}
           </p>
 
           {item.content &&
             (item.itemType === 'prompt' ? (
-              <pre className="p-4 rounded-xl bg-[#FAFAFA] border border-[#E5E5E5] font-mono text-[13px] leading-relaxed text-[#1F2937] whitespace-pre-wrap break-words">
+              <pre className="p-4 rounded-xl bg-raised border border-hairline font-mono text-[13px] leading-relaxed text-ink whitespace-pre-wrap break-words">
                 {item.content}
               </pre>
             ) : (
-              <div className="pt-4 border-t border-[#F0F0F0] text-[15px] text-[#262626] leading-[1.75] whitespace-pre-wrap max-w-prose">
+              <div className="pt-4 border-t border-hairline text-[15px] text-ink leading-[1.75] whitespace-pre-wrap max-w-prose">
                 {item.content}
               </div>
             ))}
@@ -195,7 +195,7 @@ export function ResourceDetailModal({
                 href={safeHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#111111] hover:underline underline-offset-4 decoration-[#A3A3A3]"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted"
               >
                 <span>Open reference: {hostname ?? safeHref}</span>
                 <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -205,11 +205,11 @@ export function ResourceDetailModal({
         </div>
 
         {/* Metadata footer */}
-        <div className="px-6 py-3.5 border-t border-[#F0F0F0] bg-[#FAFAFA] flex flex-wrap items-center justify-between gap-3 text-xs text-[#737373]">
+        <div className="px-6 py-3.5 border-t border-hairline bg-canvas flex flex-wrap items-center justify-between gap-3 text-xs text-ink-muted">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className={
-                categoryAccent ? categoryAccent.cardCategoryText : 'text-[#525252]'
+                categoryAccent ? categoryAccent.cardCategoryText : 'text-ink-secondary'
               }
             >
               {item.category}
@@ -218,11 +218,7 @@ export function ResourceDetailModal({
             {item.pricing && item.pricing !== 'N/A' && (
               <>
                 <span aria-hidden="true">·</span>
-                <span
-                  className={
-                    pricingTheme ? `${pricingTheme.text} font-medium` : ''
-                  }
-                >
+                <span className={pricingTheme ? pricingTheme.text : 'text-ink-muted'}>
                   {item.pricing}
                 </span>
               </>
@@ -242,10 +238,10 @@ export function ResourceDetailModal({
                           onTagClick(tag);
                           onClose();
                         }}
-                        className={`hover:text-[#111111] transition-colors cursor-pointer ${
+                        className={`hover:text-ink transition-colors cursor-pointer rounded-sm ${
                           active
-                            ? 'text-[#111111] font-medium underline underline-offset-4'
-                            : ''
+                            ? 'text-ink font-medium underline underline-offset-4'
+                            : 'text-ink-muted'
                         }`}
                       >
                         #{tag}
@@ -259,7 +255,7 @@ export function ResourceDetailModal({
             )}
           </div>
 
-          <span className="text-[11px] font-mono text-[#A3A3A3]">
+          <span className="text-[11px] font-mono text-ink-muted">
             Esc to close
           </span>
         </div>

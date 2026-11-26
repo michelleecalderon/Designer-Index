@@ -5,25 +5,19 @@ export interface PricingTheme {
 }
 
 /**
- * Accessible high-contrast colors differentiating Free, Freemium, and Paid resources
- * without wrapping metadata in static pill borders.
+ * Neutral muted styling for Free, Freemium, and Paid resources
+ * so chromatic accents remain reserved exclusively for categories.
  */
+const NEUTRAL_PRICING_THEME: PricingTheme = {
+  text: 'text-ink-muted',
+  filterActive: 'bg-raised text-ink border-hairline',
+  filterHover: 'hover:text-ink',
+};
+
 export const PRICING_THEME: Record<'Free' | 'Freemium' | 'Paid', PricingTheme> = {
-  Free: {
-    text: 'text-[#15803D]',
-    filterActive: 'bg-[#F0FDF4] text-[#15803D] border-[#86EFAC]',
-    filterHover: 'hover:text-[#15803D]',
-  },
-  Freemium: {
-    text: 'text-[#B45309]',
-    filterActive: 'bg-[#FFFBEB] text-[#B45309] border-[#FCD34D]',
-    filterHover: 'hover:text-[#B45309]',
-  },
-  Paid: {
-    text: 'text-[#4338CA]',
-    filterActive: 'bg-[#EEF2FF] text-[#4338CA] border-[#A5B4FC]',
-    filterHover: 'hover:text-[#4338CA]',
-  },
+  Free: NEUTRAL_PRICING_THEME,
+  Freemium: NEUTRAL_PRICING_THEME,
+  Paid: NEUTRAL_PRICING_THEME,
 };
 
 export function getPricingTheme(pricing: string): PricingTheme | null {
@@ -42,101 +36,150 @@ export interface CategoryAccent {
 }
 
 const DEFAULT_CATEGORY_ACCENT: CategoryAccent = {
-  sidebarActive: 'bg-[#111111] text-[#FAFAFA] border border-[#111111] font-medium',
-  sidebarCount: 'text-[#D4D4D4]',
-  cardSurface: 'bg-[#F7F7F7] border-[#A3A3A3]',
-  cardCategoryText: 'text-[#111111] font-medium',
-  mobileSelect: 'border-[#111111] text-[#111111]',
+  sidebarActive: 'bg-raised text-ink border-hairline font-semibold',
+  sidebarCount: 'text-ink-muted',
+  cardSurface: 'bg-card border-hairline hover:border-ink-secondary',
+  cardCategoryText: 'text-ink font-semibold',
+  mobileSelect: 'bg-raised border-ink-secondary text-ink font-semibold',
 };
 
 /**
- * Distinct editorial accent tokens for each directory category.
- * Used when a category is actively selected to highlight both navigation and matching cards.
+ * 12 unique category colors: soft 12% tinted background over #FDFBF7,
+ * dark grey (#5E554A) border, subtle matching colored glow border,
+ * and bold primary (#1F1B16) text for contrast.
  */
 export const CATEGORY_ACCENTS: Record<string, CategoryAccent> = {
-  'UI Inspiration': {
-    sidebarActive: 'bg-[#EEF2FF] text-[#3730A3] border border-[#C7D2FE] font-medium',
-    sidebarCount: 'text-[#4F46E5]',
-    cardSurface: 'bg-[#F8FAFF] border-[#A5B4FC] hover:border-[#6366F1]',
-    cardCategoryText: 'text-[#3730A3] font-semibold',
-    mobileSelect: 'border-[#818CF8] bg-[#F8FAFF] text-[#3730A3]',
-  },
-  'Design Tools': {
-    sidebarActive: 'bg-[#F0FDFA] text-[#0F766E] border border-[#99F6E4] font-medium',
-    sidebarCount: 'text-[#0D9488]',
-    cardSurface: 'bg-[#F4FEFC] border-[#5EEAD4] hover:border-[#0D9488]',
-    cardCategoryText: 'text-[#0F766E] font-semibold',
-    mobileSelect: 'border-[#2DD4BF] bg-[#F0FDFA] text-[#0F766E]',
-  },
-  'Icons & Illustrations': {
-    sidebarActive: 'bg-[#FFF1F2] text-[#BE123C] border border-[#FECDD3] font-medium',
-    sidebarCount: 'text-[#E11D48]',
-    cardSurface: 'bg-[#FFF7F8] border-[#FDA4AF] hover:border-[#E11D48]',
-    cardCategoryText: 'text-[#BE123C] font-semibold',
-    mobileSelect: 'border-[#FB7185] bg-[#FFF1F2] text-[#BE123C]',
-  },
-  Fonts: {
-    sidebarActive: 'bg-[#F5F3FF] text-[#6D28D9] border border-[#DDD6FE] font-medium',
-    sidebarCount: 'text-[#7C3AED]',
-    cardSurface: 'bg-[#FAF8FF] border-[#C4B5FD] hover:border-[#7C3AED]',
-    cardCategoryText: 'text-[#6D28D9] font-semibold',
-    mobileSelect: 'border-[#A78BFA] bg-[#F5F3FF] text-[#6D28D9]',
+  Prompts: {
+    // #D9363E
+    sidebarActive:
+      'bg-[#F9E3E1] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(217,54,62,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#F9E3E1] border-ink-secondary shadow-[0_0_0_2px_rgba(217,54,62,0.22)] hover:shadow-[0_0_0_2px_rgba(217,54,62,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#F9E3E1] border-ink-secondary shadow-[0_0_0_2px_rgba(217,54,62,0.22)] text-ink font-semibold',
   },
   'Color Palettes': {
-    sidebarActive: 'bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] font-medium',
-    sidebarCount: 'text-[#EA580C]',
-    cardSurface: 'bg-[#FFFAF5] border-[#FDBA74] hover:border-[#EA580C]',
-    cardCategoryText: 'text-[#C2410C] font-semibold',
-    mobileSelect: 'border-[#FB923C] bg-[#FFF7ED] text-[#C2410C]',
-  },
-  'Stock Media': {
-    sidebarActive: 'bg-[#F0F9FF] text-[#0369A1] border border-[#BAE6FD] font-medium',
-    sidebarCount: 'text-[#0284C7]',
-    cardSurface: 'bg-[#F5FBFF] border-[#7DD3FC] hover:border-[#0284C7]',
-    cardCategoryText: 'text-[#0369A1] font-semibold',
-    mobileSelect: 'border-[#38BDF8] bg-[#F0F9FF] text-[#0369A1]',
-  },
-  Mockups: {
-    sidebarActive: 'bg-[#F0FDF4] text-[#15803D] border border-[#BBF7D0] font-medium',
-    sidebarCount: 'text-[#16A34A]',
-    cardSurface: 'bg-[#F6FEF9] border-[#86EFAC] hover:border-[#16A34A]',
-    cardCategoryText: 'text-[#15803D] font-semibold',
-    mobileSelect: 'border-[#4ADE80] bg-[#F0FDF4] text-[#15803D]',
+    // #E8590C
+    sidebarActive:
+      'bg-[#FAE8DB] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(232,89,12,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#FAE8DB] border-ink-secondary shadow-[0_0_0_2px_rgba(232,89,12,0.22)] hover:shadow-[0_0_0_2px_rgba(232,89,12,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#FAE8DB] border-ink-secondary shadow-[0_0_0_2px_rgba(232,89,12,0.22)] text-ink font-semibold',
   },
   'Courses & Articles': {
-    sidebarActive: 'bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A] font-medium',
-    sidebarCount: 'text-[#D97706]',
-    cardSurface: 'bg-[#FFFDF5] border-[#FCD34D] hover:border-[#D97706]',
-    cardCategoryText: 'text-[#B45309] font-semibold',
-    mobileSelect: 'border-[#FBBF24] bg-[#FFFBEB] text-[#B45309]',
-  },
-  'Job Resources': {
-    sidebarActive: 'bg-[#FDF4FF] text-[#A21CAF] border border-[#F5D0FE] font-medium',
-    sidebarCount: 'text-[#C026D3]',
-    cardSurface: 'bg-[#FEF9FF] border-[#F0ABFC] hover:border-[#C026D3]',
-    cardCategoryText: 'text-[#A21CAF] font-semibold',
-    mobileSelect: 'border-[#E879F9] bg-[#FDF4FF] text-[#A21CAF]',
+    // #C99700
+    sidebarActive:
+      'bg-[#F7EFD9] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(201,151,0,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#F7EFD9] border-ink-secondary shadow-[0_0_0_2px_rgba(201,151,0,0.22)] hover:shadow-[0_0_0_2px_rgba(201,151,0,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#F7EFD9] border-ink-secondary shadow-[0_0_0_2px_rgba(201,151,0,0.22)] text-ink font-semibold',
   },
   'AI Tools': {
-    sidebarActive: 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE] font-medium',
-    sidebarCount: 'text-[#2563EB]',
-    cardSurface: 'bg-[#F5F9FF] border-[#93C5FD] hover:border-[#2563EB]',
-    cardCategoryText: 'text-[#1D4ED8] font-semibold',
-    mobileSelect: 'border-[#60A5FA] bg-[#EFF6FF] text-[#1D4ED8]',
+    // #7FA20C
+    sidebarActive:
+      'bg-[#EEF0DB] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(127,162,12,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#EEF0DB] border-ink-secondary shadow-[0_0_0_2px_rgba(127,162,12,0.22)] hover:shadow-[0_0_0_2px_rgba(127,162,12,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#EEF0DB] border-ink-secondary shadow-[0_0_0_2px_rgba(127,162,12,0.22)] text-ink font-semibold',
   },
-  Prompts: {
-    sidebarActive: 'bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0] font-medium',
-    sidebarCount: 'text-[#059669]',
-    cardSurface: 'bg-[#F3FCF8] border-[#6EE7B7] hover:border-[#059669]',
-    cardCategoryText: 'text-[#047857] font-semibold',
-    mobileSelect: 'border-[#34D399] bg-[#ECFDF5] text-[#047857]',
+  Mockups: {
+    // #2F9E44
+    sidebarActive:
+      'bg-[#E4F0E2] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(47,158,68,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#E4F0E2] border-ink-secondary shadow-[0_0_0_2px_rgba(47,158,68,0.22)] hover:shadow-[0_0_0_2px_rgba(47,158,68,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#E4F0E2] border-ink-secondary shadow-[0_0_0_2px_rgba(47,158,68,0.22)] text-ink font-semibold',
+  },
+  'Design Tools': {
+    // #0E9384
+    sidebarActive:
+      'bg-[#E0EFE9] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(14,147,132,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#E0EFE9] border-ink-secondary shadow-[0_0_0_2px_rgba(14,147,132,0.22)] hover:shadow-[0_0_0_2px_rgba(14,147,132,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#E0EFE9] border-ink-secondary shadow-[0_0_0_2px_rgba(14,147,132,0.22)] text-ink font-semibold',
+  },
+  'Stock Media': {
+    // #1C8FD6
+    sidebarActive:
+      'bg-[#E2EEF3] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(28,143,214,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#E2EEF3] border-ink-secondary shadow-[0_0_0_2px_rgba(28,143,214,0.22)] hover:shadow-[0_0_0_2px_rgba(28,143,214,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#E2EEF3] border-ink-secondary shadow-[0_0_0_2px_rgba(28,143,214,0.22)] text-ink font-semibold',
+  },
+  'UI Inspiration': {
+    // #4C5BD4
+    sidebarActive:
+      'bg-[#E8E8F3] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(76,91,212,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#E8E8F3] border-ink-secondary shadow-[0_0_0_2px_rgba(76,91,212,0.22)] hover:shadow-[0_0_0_2px_rgba(76,91,212,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#E8E8F3] border-ink-secondary shadow-[0_0_0_2px_rgba(76,91,212,0.22)] text-ink font-semibold',
+  },
+  Fonts: {
+    // #8B4FD8
+    sidebarActive:
+      'bg-[#EFE6F3] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(139,79,216,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#EFE6F3] border-ink-secondary shadow-[0_0_0_2px_rgba(139,79,216,0.22)] hover:shadow-[0_0_0_2px_rgba(139,79,216,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#EFE6F3] border-ink-secondary shadow-[0_0_0_2px_rgba(139,79,216,0.22)] text-ink font-semibold',
+  },
+  'Job Resources': {
+    // #C23DB5
+    sidebarActive:
+      'bg-[#F6E4EF] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(194,61,181,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#F6E4EF] border-ink-secondary shadow-[0_0_0_2px_rgba(194,61,181,0.22)] hover:shadow-[0_0_0_2px_rgba(194,61,181,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#F6E4EF] border-ink-secondary shadow-[0_0_0_2px_rgba(194,61,181,0.22)] text-ink font-semibold',
+  },
+  'Icons & Illustrations': {
+    // #E0457B
+    sidebarActive:
+      'bg-[#FAE5E8] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(224,69,123,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#FAE5E8] border-ink-secondary shadow-[0_0_0_2px_rgba(224,69,123,0.22)] hover:shadow-[0_0_0_2px_rgba(224,69,123,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#FAE5E8] border-ink-secondary shadow-[0_0_0_2px_rgba(224,69,123,0.22)] text-ink font-semibold',
   },
   Other: {
-    sidebarActive: 'bg-[#FEFCE8] text-[#854D0E] border border-[#FEF08A] font-medium',
-    sidebarCount: 'text-[#CA8A04]',
-    cardSurface: 'bg-[#FEFDF4] border-[#FDE047] hover:border-[#CA8A04]',
-    cardCategoryText: 'text-[#854D0E] font-semibold',
-    mobileSelect: 'border-[#FACC15] bg-[#FEFCE8] text-[#854D0E]',
+    // #8A6F52
+    sidebarActive:
+      'bg-[#EFEAE3] text-ink border-ink-secondary shadow-[0_0_0_2px_rgba(138,111,82,0.22)] font-semibold',
+    sidebarCount: 'text-ink-muted',
+    cardSurface:
+      'bg-[#EFEAE3] border-ink-secondary shadow-[0_0_0_2px_rgba(138,111,82,0.22)] hover:shadow-[0_0_0_2px_rgba(138,111,82,0.34)]',
+    cardCategoryText: 'text-ink font-semibold',
+    mobileSelect:
+      'bg-[#EFEAE3] border-ink-secondary shadow-[0_0_0_2px_rgba(138,111,82,0.22)] text-ink font-semibold',
   },
 };
 

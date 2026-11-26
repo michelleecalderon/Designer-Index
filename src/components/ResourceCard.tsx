@@ -27,8 +27,8 @@ interface ResourceCardProps {
 
 /**
  * Renders one of the 3 directory item types ('link' | 'prompt' | 'note')
- * inside a uniform-height card with unboxed metadata, semantic pricing colors,
- * active category highlighting, and overlay expansion for long Prompts and Notes.
+ * inside a uniform-height card using the warm neutral ramp, muted pricing metadata,
+ * active category surface/glow highlights, and overlay expansion for Prompts and Notes.
  */
 export function ResourceCard({
   item,
@@ -55,7 +55,7 @@ export function ResourceCard({
 
   const surfaceClasses = categoryAccent
     ? categoryAccent.cardSurface
-    : 'bg-white border-[#E5E5E5] hover:border-[#A3A3A3]';
+    : 'bg-card border-hairline hover:border-ink-secondary';
 
   const handleCopyPrompt = async (e: MouseEvent) => {
     e.stopPropagation();
@@ -90,11 +90,11 @@ export function ResourceCard({
 
   // Unboxed metadata footer shared across all 3 uniform card types
   const renderMetadata = () => (
-    <div className="mt-auto pt-3 border-t border-[#F0F0F0] flex items-center justify-between gap-2 text-xs text-[#737373]">
+    <div className="mt-auto pt-3 border-t border-hairline flex items-center justify-between gap-2 text-xs text-ink-muted">
       <div className="flex items-center gap-x-2 min-w-0 truncate">
         {!item.isPublic && (
           <>
-            <span className="inline-flex items-center gap-1 font-medium text-[#111111] shrink-0">
+            <span className="inline-flex items-center gap-1 font-medium text-ink shrink-0">
               <Lock className="w-3 h-3" aria-hidden="true" />
               <span>Private</span>
             </span>
@@ -104,7 +104,7 @@ export function ResourceCard({
 
         <span
           className={`shrink-0 ${
-            categoryAccent ? categoryAccent.cardCategoryText : 'text-[#525252]'
+            categoryAccent ? categoryAccent.cardCategoryText : 'text-ink-secondary'
           }`}
         >
           {item.category}
@@ -115,7 +115,7 @@ export function ResourceCard({
             <span aria-hidden="true">·</span>
             <span
               className={`shrink-0 ${
-                pricingTheme ? `${pricingTheme.text} font-medium` : ''
+                pricingTheme ? pricingTheme.text : 'text-ink-muted'
               }`}
             >
               {item.pricing}
@@ -137,10 +137,10 @@ export function ResourceCard({
                       e.stopPropagation();
                       onTagClick(tag);
                     }}
-                    className={`hover:text-[#111111] transition-colors cursor-pointer shrink-0 ${
+                    className={`hover:text-ink transition-colors cursor-pointer shrink-0 rounded-sm ${
                       isSelected
-                        ? 'text-[#111111] font-medium underline underline-offset-4'
-                        : ''
+                        ? 'text-ink font-medium underline underline-offset-4'
+                        : 'text-ink-muted'
                     }`}
                   >
                     #{tag}
@@ -167,7 +167,7 @@ export function ResourceCard({
                 type="button"
                 onClick={handleConfirmDelete}
                 disabled={deleting}
-                className="text-xs font-medium text-[#991B1B] hover:underline underline-offset-4 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                className="text-xs font-medium text-danger hover:underline underline-offset-4 cursor-pointer disabled:opacity-50 whitespace-nowrap"
               >
                 {deleting ? 'Deleting…' : 'Confirm'}
               </button>
@@ -177,7 +177,7 @@ export function ResourceCard({
                   e.stopPropagation();
                   setConfirmingDelete(false);
                 }}
-                className="text-xs text-[#737373] hover:text-[#111111] cursor-pointer whitespace-nowrap"
+                className="text-xs text-ink-muted hover:text-ink cursor-pointer whitespace-nowrap"
               >
                 Cancel
               </button>
@@ -191,7 +191,7 @@ export function ResourceCard({
                   onEdit?.(item);
                 }}
                 aria-label={`Edit ${item.title}`}
-                className="inline-flex items-center gap-1 text-xs text-[#737373] hover:text-[#111111] transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Pencil className="w-3 h-3" aria-hidden="true" />
                 <span>Edit</span>
@@ -203,7 +203,7 @@ export function ResourceCard({
                   setConfirmingDelete(true);
                 }}
                 aria-label={`Delete ${item.title}`}
-                className="inline-flex items-center gap-1 text-xs text-[#737373] hover:text-[#991B1B] transition-colors cursor-pointer whitespace-nowrap"
+                className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-danger transition-colors cursor-pointer whitespace-nowrap"
               >
                 <Trash2 className="w-3 h-3" aria-hidden="true" />
                 <span>Delete</span>
@@ -218,12 +218,12 @@ export function ResourceCard({
   if (item.itemType === 'link') {
     return (
       <article
-        className={`group h-full md:h-[236px] border rounded-xl p-5 transition-colors duration-150 flex flex-col justify-between ${surfaceClasses}`}
+        className={`group h-full md:h-[236px] border rounded-xl p-5 transition-all duration-150 flex flex-col justify-between ${surfaceClasses}`}
       >
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] flex items-center justify-center shrink-0 overflow-hidden">
+              <div className="w-8 h-8 rounded-lg bg-raised border border-hairline flex items-center justify-center shrink-0 overflow-hidden">
                 {faviconUrl && !faviconFailed ? (
                   <img
                     src={faviconUrl}
@@ -233,7 +233,7 @@ export function ResourceCard({
                     className="w-4 h-4 object-contain"
                   />
                 ) : (
-                  <span className="text-xs font-display font-semibold text-[#525252] uppercase">
+                  <span className="text-xs font-display font-semibold text-ink-secondary uppercase">
                     {item.title.slice(0, 1)}
                   </span>
                 )}
@@ -245,21 +245,21 @@ export function ResourceCard({
                     href={safeHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-display text-[15px] font-semibold text-[#111111] group-hover:underline underline-offset-4 decoration-[#A3A3A3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111] rounded-sm max-w-full"
+                    className="inline-flex items-center gap-1 font-display text-[15px] font-semibold text-ink group-hover:underline underline-offset-4 decoration-ink-muted rounded-sm max-w-full"
                   >
                     <span className="truncate">{item.title}</span>
                     <ArrowUpRight
-                      className="w-3.5 h-3.5 text-[#737373] group-hover:text-[#111111] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-150 shrink-0"
+                      className="w-3.5 h-3.5 text-ink-muted group-hover:text-ink group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-150 shrink-0"
                       aria-hidden="true"
                     />
                   </a>
                 ) : (
-                  <h3 className="font-display text-[15px] font-semibold text-[#111111] truncate">
+                  <h3 className="font-display text-[15px] font-semibold text-ink truncate">
                     {item.title}
                   </h3>
                 )}
                 {hostname && (
-                  <p className="text-xs font-mono text-[#737373] truncate">
+                  <p className="text-xs font-mono text-ink-muted truncate">
                     {hostname}
                   </p>
                 )}
@@ -267,7 +267,7 @@ export function ResourceCard({
             </div>
           </div>
 
-          <p className="mt-3 text-sm text-[#525252] leading-relaxed line-clamp-4">
+          <p className="mt-3 text-sm text-ink-secondary leading-relaxed line-clamp-4">
             {item.description}
           </p>
         </div>
@@ -281,16 +281,16 @@ export function ResourceCard({
     return (
       <article
         onClick={() => onInspect?.(item)}
-        className={`group h-full md:h-[236px] border rounded-xl p-5 transition-colors duration-150 flex flex-col justify-between cursor-pointer ${surfaceClasses}`}
+        className={`group h-full md:h-[236px] border rounded-xl p-5 transition-all duration-150 flex flex-col justify-between cursor-pointer ${surfaceClasses}`}
       >
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-[#737373] mb-0.5">
+              <div className="flex items-center gap-1.5 text-xs text-ink-muted mb-0.5">
                 <Terminal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Prompt</span>
               </div>
-              <h3 className="font-display text-[15px] font-semibold text-[#111111] truncate group-hover:underline underline-offset-4 decoration-[#A3A3A3]">
+              <h3 className="font-display text-[15px] font-semibold text-ink truncate group-hover:underline underline-offset-4 decoration-ink-muted">
                 {item.title}
               </h3>
             </div>
@@ -300,7 +300,7 @@ export function ResourceCard({
                 type="button"
                 onClick={handleCopyPrompt}
                 disabled={!item.content}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E5E5E5] bg-[#FAFAFA] hover:bg-[#111111] hover:text-[#FAFAFA] hover:border-[#111111] text-[#111111] transition-colors duration-150 whitespace-nowrap cursor-pointer disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-raised hover:bg-ink hover:text-card hover:border-ink text-ink transition-colors duration-150 whitespace-nowrap cursor-pointer disabled:opacity-40"
                 aria-live="polite"
               >
                 {copied ? (
@@ -323,7 +323,7 @@ export function ResourceCard({
                   onInspect?.(item);
                 }}
                 aria-label={`Open full prompt: ${item.title}`}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E5E5E5] bg-white hover:border-[#111111] text-[#525252] hover:text-[#111111] transition-colors duration-150 whitespace-nowrap cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-card hover:border-ink-secondary text-ink-secondary hover:text-ink transition-colors duration-150 whitespace-nowrap cursor-pointer"
               >
                 <Maximize2 className="w-3 h-3" aria-hidden="true" />
                 <span>View</span>
@@ -331,12 +331,12 @@ export function ResourceCard({
             </div>
           </div>
 
-          <p className="mt-2 text-sm text-[#525252] leading-relaxed line-clamp-2">
+          <p className="mt-2 text-sm text-ink-secondary leading-relaxed line-clamp-2">
             {item.description}
           </p>
 
           {item.content && (
-            <div className="mt-2.5 px-3 py-2 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] font-mono text-[12px] leading-snug text-[#404040] line-clamp-2">
+            <div className="mt-2.5 px-3 py-2 rounded-lg bg-raised border border-hairline font-mono text-[12px] leading-snug text-ink-secondary line-clamp-2">
               {item.content}
             </div>
           )}
@@ -350,16 +350,16 @@ export function ResourceCard({
   return (
     <article
       onClick={() => onInspect?.(item)}
-      className={`group h-full md:h-[236px] border rounded-xl p-5 transition-colors duration-150 flex flex-col justify-between cursor-pointer ${surfaceClasses}`}
+      className={`group h-full md:h-[236px] border rounded-xl p-5 transition-all duration-150 flex flex-col justify-between cursor-pointer ${surfaceClasses}`}
     >
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-xs text-[#737373] mb-0.5">
+            <div className="flex items-center gap-1.5 text-xs text-ink-muted mb-0.5">
               <FileText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>Note</span>
             </div>
-            <h3 className="font-display text-[15px] font-semibold text-[#111111] truncate group-hover:underline underline-offset-4 decoration-[#A3A3A3]">
+            <h3 className="font-display text-[15px] font-semibold text-ink truncate group-hover:underline underline-offset-4 decoration-ink-muted">
               {item.title}
             </h3>
           </div>
@@ -371,23 +371,21 @@ export function ResourceCard({
               onInspect?.(item);
             }}
             aria-label={`Read full note: ${item.title}`}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[#E5E5E5] bg-[#FAFAFA] hover:border-[#111111] text-[#111111] transition-colors duration-150 shrink-0 whitespace-nowrap cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-raised hover:border-ink-secondary text-ink transition-colors duration-150 shrink-0 whitespace-nowrap cursor-pointer"
           >
             <Maximize2 className="w-3 h-3" aria-hidden="true" />
             <span>Read note</span>
           </button>
         </div>
 
-        <p className="mt-2.5 text-sm text-[#525252] leading-relaxed line-clamp-3">
+        <p className="mt-2.5 text-sm text-ink-secondary leading-relaxed line-clamp-3">
           {item.description}
         </p>
 
         {(item.content || safeHref) && (
-          <div className="mt-2.5 flex items-center justify-between gap-2 text-xs text-[#737373]">
+          <div className="mt-2.5 flex items-center justify-between gap-2 text-xs text-ink-muted">
             {item.content ? (
-              <span className="truncate italic">
-                {item.content}
-              </span>
+              <span className="truncate italic">{item.content}</span>
             ) : (
               <span />
             )}
@@ -397,7 +395,7 @@ export function ResourceCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 font-medium text-[#111111] hover:underline underline-offset-4 decoration-[#A3A3A3] shrink-0 whitespace-nowrap"
+                className="inline-flex items-center gap-1 font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted shrink-0 whitespace-nowrap"
               >
                 <span>{hostname ?? 'Reference'}</span>
                 <ArrowUpRight className="w-3 h-3" aria-hidden="true" />

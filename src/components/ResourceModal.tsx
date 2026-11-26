@@ -175,16 +175,16 @@ export function ResourceModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[1px] p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 backdrop-blur-[1px] p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="resource-modal-title"
     >
-      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-white border border-[#E5E5E5] rounded-xl p-6 sm:p-7">
-        <div className="flex items-center justify-between gap-4 pb-4 border-b border-[#E5E5E5]">
+      <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto bg-card border border-hairline rounded-xl p-6 sm:p-7">
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-hairline">
           <h2
             id="resource-modal-title"
-            className="font-display text-lg font-semibold text-[#111111]"
+            className="font-display text-lg font-semibold text-ink"
           >
             {editingItem ? 'Edit Resource' : 'Add Resource'}
           </h2>
@@ -192,7 +192,7 @@ export function ResourceModal({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="p-1.5 text-[#737373] hover:text-[#111111] rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-ink-muted hover:text-ink rounded-lg transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -200,15 +200,15 @@ export function ResourceModal({
 
         {/* Magic Paste section: paste anything and let Gemini pre-fill the form */}
         {!editingItem && (
-          <div className="mt-5 p-4 rounded-xl bg-[#FAFAFA] border border-[#E5E5E5]">
+          <div className="mt-5 p-4 rounded-xl bg-canvas border border-hairline">
             <div className="flex items-center justify-between gap-3 mb-2">
               <label
                 htmlFor="magic-paste-input"
-                className="text-xs font-medium text-[#111111]"
+                className="text-xs font-medium text-ink"
               >
                 Magic Paste
               </label>
-              <span className="text-[11px] text-[#737373]">
+              <span className="text-[11px] text-ink-muted">
                 URL, prompt, or rough note
               </span>
             </div>
@@ -219,18 +219,18 @@ export function ResourceModal({
               value={magicInput}
               onChange={(e) => setMagicInput(e.target.value)}
               placeholder="Paste any link (https://...), reusable prompt, or quick note…"
-              className="w-full p-2.5 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] placeholder:text-[#A3A3A3] resize-y"
+              className="w-full p-2.5 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y"
             />
 
             <div className="mt-2.5 flex items-center justify-between gap-3">
-              <p className="text-[11px] text-[#737373]">
+              <p className="text-[11px] text-ink-muted">
                 Detects type, category, pricing, summary, and tags automatically.
               </p>
               <button
                 type="button"
                 onClick={handleMagicClassify}
                 disabled={classifying || !magicInput.trim()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors whitespace-nowrap shrink-0 disabled:opacity-45 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium bg-ink text-card rounded-lg hover:bg-ink-secondary transition-colors whitespace-nowrap shrink-0 disabled:opacity-45 cursor-pointer"
               >
                 {classifying ? (
                   <>
@@ -252,23 +252,23 @@ export function ResourceModal({
           {error && (
             <div
               role="alert"
-              className="p-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B]"
+              className="p-3 rounded-lg bg-danger/8 border border-danger/30 text-xs text-danger"
             >
               {error}
             </div>
           )}
 
           {aiStatusNote && (
-            <div className="p-3 rounded-lg bg-[#FAFAFA] border border-[#E5E5E5] text-xs text-[#262626]">
+            <div className="p-3 rounded-lg bg-raised border border-hairline text-xs text-ink-secondary">
               {aiStatusNote}
             </div>
           )}
 
           <div>
-            <span className="block text-xs font-medium text-[#525252] mb-1.5">
+            <span className="block text-xs font-medium text-ink-secondary mb-1.5">
               Type
             </span>
-            <div className="inline-flex items-center p-1 bg-[#F2F2F2] border border-[#E5E5E5] rounded-lg">
+            <div className="inline-flex items-center p-1 bg-card border border-hairline rounded-lg">
               {ITEM_TYPES.map((typeOption) => {
                 const active = form.itemType === typeOption;
                 return (
@@ -287,10 +287,10 @@ export function ResourceModal({
                               : prev.pricing,
                       }))
                     }
-                    className={`px-3.5 py-1.5 text-xs font-medium capitalize rounded-md transition-colors cursor-pointer ${
+                    className={`px-3.5 py-1.5 text-xs font-medium capitalize rounded-md border transition-colors cursor-pointer ${
                       active
-                        ? 'bg-white text-[#111111] border border-[#E5E5E5]'
-                        : 'text-[#525252] hover:text-[#111111] border border-transparent'
+                        ? 'bg-raised text-ink border-hairline'
+                        : 'text-ink-muted hover:text-ink border-transparent'
                     }`}
                   >
                     {typeOption}
@@ -303,7 +303,7 @@ export function ResourceModal({
           <div>
             <label
               htmlFor="resource-title"
-              className="block text-xs font-medium text-[#525252] mb-1.5"
+              className="block text-xs font-medium text-ink-secondary mb-1.5"
             >
               Title
             </label>
@@ -314,14 +314,14 @@ export function ResourceModal({
               value={form.title}
               onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
               placeholder="e.g., Phosphor Icons"
-              className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111]"
+              className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
             />
           </div>
 
           <div>
             <label
               htmlFor="resource-description"
-              className="block text-xs font-medium text-[#525252] mb-1.5"
+              className="block text-xs font-medium text-ink-secondary mb-1.5"
             >
               1-Sentence Description
             </label>
@@ -334,7 +334,7 @@ export function ResourceModal({
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
               placeholder="Concise summary of what this resource is and why it's useful."
-              className="w-full p-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] resize-y"
+              className="w-full p-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y"
             />
           </div>
 
@@ -342,7 +342,7 @@ export function ResourceModal({
             <div>
               <label
                 htmlFor="resource-category"
-                className="block text-xs font-medium text-[#525252] mb-1.5"
+                className="block text-xs font-medium text-ink-secondary mb-1.5"
               >
                 Category
               </label>
@@ -355,7 +355,7 @@ export function ResourceModal({
                     category: e.target.value as ResourceCategory,
                   }))
                 }
-                className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111]"
+                className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink"
               >
                 {CATEGORIES.map((category) => (
                   <option key={category} value={category}>
@@ -368,7 +368,7 @@ export function ResourceModal({
             <div>
               <label
                 htmlFor="resource-pricing"
-                className="block text-xs font-medium text-[#525252] mb-1.5"
+                className="block text-xs font-medium text-ink-secondary mb-1.5"
               >
                 Pricing
               </label>
@@ -381,7 +381,7 @@ export function ResourceModal({
                     pricing: e.target.value as ResourcePricing,
                   }))
                 }
-                className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111]"
+                className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink"
               >
                 {PRICING_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -396,7 +396,7 @@ export function ResourceModal({
             <div>
               <label
                 htmlFor="resource-url"
-                className="block text-xs font-medium text-[#525252] mb-1.5"
+                className="block text-xs font-medium text-ink-secondary mb-1.5"
               >
                 URL {form.itemType === 'note' ? '(optional)' : ''}
               </label>
@@ -409,17 +409,17 @@ export function ResourceModal({
                   setForm((prev) => ({ ...prev, url: e.target.value }))
                 }
                 placeholder="https://example.com"
-                className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] font-mono"
+                className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted font-mono"
               />
               {duplicateMatch && (
                 <div
                   role="status"
-                  className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-[#FFFBEB] border border-[#FDE68A] text-xs text-[#92400E]"
+                  className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-raised border border-hairline text-xs text-ink-secondary"
                 >
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink" aria-hidden="true" />
                   <span>
                     This URL already exists in your directory under{' '}
-                    <strong className="font-medium">“{duplicateMatch.title}”</strong>.
+                    <strong className="font-medium text-ink">“{duplicateMatch.title}”</strong>.
                   </span>
                 </div>
               )}
@@ -430,7 +430,7 @@ export function ResourceModal({
             <div>
               <label
                 htmlFor="resource-content"
-                className="block text-xs font-medium text-[#525252] mb-1.5"
+                className="block text-xs font-medium text-ink-secondary mb-1.5"
               >
                 {form.itemType === 'prompt' ? 'Prompt Text' : 'Note Content'}
               </label>
@@ -447,7 +447,7 @@ export function ResourceModal({
                     ? 'Paste the reusable prompt template here…'
                     : 'Write your personal notes or takeaways here…'
                 }
-                className={`w-full p-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111] resize-y ${
+                className={`w-full p-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y ${
                   form.itemType === 'prompt' ? 'font-mono text-[13px]' : ''
                 }`}
               />
@@ -457,7 +457,7 @@ export function ResourceModal({
           <div>
             <label
               htmlFor="resource-tags"
-              className="block text-xs font-medium text-[#525252] mb-1.5"
+              className="block text-xs font-medium text-ink-secondary mb-1.5"
             >
               Tags (comma-separated, max 4 canonical tags)
             </label>
@@ -467,9 +467,9 @@ export function ResourceModal({
               value={form.tags}
               onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
               placeholder="layout, typography, figma"
-              className="w-full h-10 px-3 bg-white border border-[#E5E5E5] focus:border-[#111111] focus:outline-none rounded-lg text-sm text-[#111111]"
+              className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
             />
-            <p className="mt-1 text-[11px] text-[#737373]">
+            <p className="mt-1 text-[11px] text-ink-muted">
               Near-duplicates and compound tags automatically normalize on save (e.g. layout-tips → layout, tips).
             </p>
           </div>
@@ -481,43 +481,43 @@ export function ResourceModal({
                 setForm((prev) => ({ ...prev, isPublic: !prev.isPublic }))
               }
               aria-pressed={form.isPublic}
-              className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-[#E5E5E5] bg-[#FAFAFA] hover:border-[#A3A3A3] transition-colors text-left cursor-pointer"
+              className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-hairline bg-raised hover:border-ink-secondary transition-colors text-left cursor-pointer"
             >
               <div className="flex items-center gap-2.5">
                 {form.isPublic ? (
-                  <Eye className="w-4 h-4 text-[#111111]" aria-hidden="true" />
+                  <Eye className="w-4 h-4 text-ink" aria-hidden="true" />
                 ) : (
-                  <EyeOff className="w-4 h-4 text-[#737373]" aria-hidden="true" />
+                  <EyeOff className="w-4 h-4 text-ink-muted" aria-hidden="true" />
                 )}
                 <div>
-                  <p className="text-xs font-medium text-[#111111]">
+                  <p className="text-xs font-medium text-ink">
                     {form.isPublic ? 'Public resource' : 'Private draft'}
                   </p>
-                  <p className="text-[11px] text-[#737373]">
+                  <p className="text-[11px] text-ink-muted">
                     {form.isPublic
                       ? 'Visible to anyone browsing the directory'
                       : 'Hidden from visitors — only visible when signed in as admin'}
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-mono text-[#525252]">
+              <span className="text-xs font-mono text-ink-secondary">
                 {form.isPublic ? 'is_public: true' : 'is_public: false'}
               </span>
             </button>
           </div>
 
-          <div className="pt-4 border-t border-[#E5E5E5] flex items-center justify-end gap-3">
+          <div className="pt-4 border-t border-hairline flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-[#525252] hover:text-[#111111] border border-[#E5E5E5] rounded-lg transition-colors cursor-pointer"
+              className="px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink border border-hairline rounded-lg transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-xs font-medium bg-[#111111] text-[#FAFAFA] rounded-lg hover:bg-[#262626] transition-colors disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 text-xs font-medium bg-ink text-card rounded-lg hover:bg-ink-secondary transition-colors disabled:opacity-50 cursor-pointer"
             >
               {saving
                 ? 'Saving…'
