@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, Eye, EyeOff, Loader2, Wand2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Loader2,
+  Plus,
+  Wand2,
+  X,
+} from 'lucide-react';
 import {
   CATEGORIES,
   ITEM_TYPES,
@@ -7,9 +15,14 @@ import {
   type ResourceCategory,
   type ResourceItem,
   type ResourceItemType,
+  type ResourceMeta,
   type ResourcePricing,
 } from '../shared/constants.ts';
 import { normalizeUrlForCompare } from '../shared/tags.ts';
+import { normalizeHexColors, sanitizeFontFamily } from '../shared/validation.ts';
+import { loadGoogleFonts } from '../utils/fonts.ts';
+
+export type MetaKindOption = 'none' | 'font_pairing' | 'palette' | 'component';
 
 export interface ResourceFormValues {
   itemType: ResourceItemType;
@@ -19,7 +32,15 @@ export interface ResourceFormValues {
   pricing: ResourcePricing;
   tags: string;
   url: string;
+  repoUrl: string;
   content: string;
+  metaKind: MetaKindOption;
+  headingFont: string;
+  bodyFont: string;
+  fontAesthetic: string;
+  sampleText: string;
+  paletteColors: string;
+  componentFramework: string;
   isPublic: boolean;
 }
 
@@ -31,14 +52,18 @@ export interface ClassifiedDraft {
   pricing: ResourcePricing;
   tags: string[];
   url: string | null;
+  repo_url: string | null;
   content: string | null;
+  meta: ResourceMeta | null;
   metadataNote?: string | null;
 }
 
 interface ResourceModalProps {
   open: boolean;
   editingItem: ResourceItem | null;
-  existingResources: Array<Pick<ResourceItem, 'id' | 'title' | 'url'>>;
+  existingResources: Array<
+    Pick<ResourceItem, 'id' | 'title' | 'url' | 'repoUrl'>
+  >;
   onClose: () => void;
   onSave: (values: ResourceFormValues, editingId?: number) => Promise<void>;
   onClassify: (input: string) => Promise<ClassifiedDraft>;
@@ -52,13 +77,92 @@ const DEFAULT_FORM: ResourceFormValues = {
   pricing: 'Free',
   tags: '',
   url: '',
+  repoUrl: '',
   content: '',
+  metaKind: 'none',
+  headingFont: '',
+  bodyFont: '',
+  fontAesthetic: '',
+  sampleText: '',
+  paletteColors: '',
+  componentFramework: 'Tailwind',
   isPublic: true,
 };
 
+const META_KIND_OPTIONS: Array<{ id: MetaKindOption; label: string }> = [
+  { id: 'none', label: 'Standard' },
+  { id: 'font_pairing', label: 'Font pairing' },
+  { id: 'palette', label: 'Color palette' },
+  { id: 'component', label: 'UI component' },
+];
+
+const TYPE_LABELS: Record<ResourceItemType, string> = {
+  link: 'Link',
+  repo: 'Repo',
+  prompt: 'Prompt',
+  note: 'Note',
+};
+
+function unpackMetaToFormFields(
+  meta: ResourceMeta | null | undefined
+): Pick<
+  ResourceFormValues,
+  | 'metaKind'
+  | 'headingFont'
+  | 'bodyFont'
+  | 'fontAesthetic'
+  | 'sampleText'
+  | 'paletteColors'
+  | 'componentFramework'
+> {
+  if (!meta) {
+    return {
+      metaKind: 'none',
+      headingFont: '',
+      bodyFont: '',
+      fontAesthetic: '',
+      sampleText: '',
+      paletteColors: '',
+      componentFramework: 'Tailwind',
+    };
+  }
+  if (meta.kind === 'font_pairing') {
+    return {
+      metaKind: 'font_pairing',
+      headingFont: meta.headingFont,
+      bodyFont: meta.bodyFont,
+      fontAesthetic: meta.aesthetic ?? '',
+      sampleText: meta.sampleText ?? '',
+      paletteColors: '',
+      componentFramework: 'Tailwind',
+    };
+  }
+  if (meta.kind === 'palette') {
+    return {
+      metaKind: 'palette',
+      headingFont: '',
+      bodyFont: '',
+      fontAesthetic: '',
+      sampleText: '',
+      paletteColors: meta.colors.join(', '),
+      componentFramework: 'Tailwind',
+    };
+  }
+  return {
+    metaKind: 'component',
+    headingFont: '',
+    bodyFont: '',
+    fontAesthetic: '',
+    sampleText: '',
+    paletteColors: '',
+    componentFramework: meta.framework || 'Tailwind',
+  };
+}
+
 /**
- * Modal form for Creating or Updating a directory resource (link, prompt, or note),
- * including the server-powered AI "Magic Paste" auto-classifier.
+ * Modal form for Creating or Updating a designer workbench resource
+ * (links, dual-link skills, standalone GitHub repos, font pairings, palettes,
+ * reusable UI components, prompts, or notes) with Magic Paste AI classification.
  */
 export function ResourceModal({
   open,
@@ -69,6 +173,7 @@ export function ResourceModal({
   onClassify,
 }: ResourceModalProps) {
   const [form, setForm] = useState<ResourceFormValues>(DEFAULT_FORM);
+  const [pickerColor, setPickerColor] = useState('#D9363E');
   const [magicInput, setMagicInput] = useState('');
   const [classifying, setClassifying] = useState(false);
   const [aiStatusNote, setAiStatusNote] = useState<string | null>(null);
@@ -76,16 +181,42 @@ export function ResourceModal({
   const [error, setError] = useState<string | null>(null);
 
   const duplicateMatch = useMemo(() => {
-    const normalizedInput = normalizeUrlForCompare(form.url);
-    if (!normalizedInput) return null;
+    const normalizedUrl = normalizeUrlForCompare(form.url);
+    const normalizedRepo = normalizeUrlForCompare(form.repoUrl);
+    if (!normalizedUrl && !normalizedRepo) return null;
+
     return (
-      existingResources.find(
-        (row) =>
-          row.id !== editingItem?.id &&
-          normalizeUrlForCompare(row.url) === normalizedInput
-      ) ?? null
+      existingResources.find((row) => {
+        if (row.id === editingItem?.id) return false;
+        const rowUrl = normalizeUrlForCompare(row.url);
+        const rowRepo = normalizeUrlForCompare(row.repoUrl);
+        return (
+          Boolean(
+            normalizedUrl &&
+              (rowUrl === normalizedUrl || rowRepo === normalizedUrl)
+          ) ||
+          Boolean(
+            normalizedRepo &&
+              (rowUrl === normalizedRepo || rowRepo === normalizedRepo)
+          )
+        );
+      }) ?? null
     );
-  }, [form.url, existingResources, editingItem]);
+  }, [form.url, form.repoUrl, existingResources, editingItem]);
+
+  const parsedSwatches = useMemo(
+    () => normalizeHexColors(form.paletteColors),
+    [form.paletteColors]
+  );
+
+  const cleanHeadingFont = sanitizeFontFamily(form.headingFont);
+  const cleanBodyFont = sanitizeFontFamily(form.bodyFont);
+
+  useEffect(() => {
+    if (open && form.metaKind === 'font_pairing') {
+      loadGoogleFonts([cleanHeadingFont, cleanBodyFont]);
+    }
+  }, [open, form.metaKind, cleanHeadingFont, cleanBodyFont]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,7 +232,9 @@ export function ResourceModal({
         pricing: editingItem.pricing,
         tags: editingItem.tags.join(', '),
         url: editingItem.url ?? '',
+        repoUrl: editingItem.repoUrl ?? '',
         content: editingItem.content ?? '',
+        ...unpackMetaToFormFields(editingItem.meta),
         isPublic: editingItem.isPublic,
       });
     } else {
@@ -123,7 +256,7 @@ export function ResourceModal({
   const handleMagicClassify = async () => {
     const trimmed = magicInput.trim();
     if (!trimmed) {
-      setError('Paste a URL, raw prompt, or note first.');
+      setError('Paste a URL, GitHub repo, font pairing, hex codes, or note first.');
       return;
     }
 
@@ -141,7 +274,9 @@ export function ResourceModal({
         pricing: result.pricing,
         tags: result.tags.join(', '),
         url: result.url ?? '',
+        repoUrl: result.repo_url ?? '',
         content: result.content ?? '',
+        ...unpackMetaToFormFields(result.meta),
       }));
       setAiStatusNote(
         result.metadataNote
@@ -159,9 +294,63 @@ export function ResourceModal({
     }
   };
 
+  const handleAddSwatch = () => {
+    const merged = normalizeHexColors([
+      ...parsedSwatches,
+      pickerColor.toUpperCase(),
+    ]);
+    setForm((prev) => ({
+      ...prev,
+      paletteColors: merged.join(', '),
+    }));
+  };
+
+  const handleRemoveSwatch = (hexToRemove: string) => {
+    const remaining = parsedSwatches.filter((hex) => hex !== hexToRemove);
+    setForm((prev) => ({
+      ...prev,
+      paletteColors: remaining.join(', '),
+    }));
+  };
+
+  const handleMetaKindChange = (nextKind: MetaKindOption) => {
+    setForm((prev) => {
+      const next = { ...prev, metaKind: nextKind };
+      if (nextKind === 'font_pairing') {
+        next.category = 'Fonts';
+        if (prev.itemType === 'link' && !prev.url.trim()) {
+          next.itemType = 'note';
+          next.pricing = 'N/A';
+        }
+      } else if (nextKind === 'palette') {
+        next.category = 'Color Palettes';
+        if (prev.itemType === 'link' && !prev.url.trim()) {
+          next.itemType = 'note';
+          next.pricing = 'N/A';
+        }
+      } else if (nextKind === 'component') {
+        if (prev.itemType === 'link' && !prev.url.trim()) {
+          next.itemType = 'note';
+          next.pricing = 'N/A';
+        }
+      }
+      return next;
+    });
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (form.metaKind === 'font_pairing' && !cleanHeadingFont && !cleanBodyFont) {
+      setError('Enter at least a heading or body font family for a Font pairing.');
+      return;
+    }
+    if (form.metaKind === 'palette' && parsedSwatches.length < 2) {
+      setError('Add at least 2 valid #RRGGBB hex colors for a Color palette.');
+      return;
+    }
+
     setSaving(true);
     try {
       await onSave(form, editingItem?.id);
@@ -172,6 +361,12 @@ export function ResourceModal({
       setSaving(false);
     }
   };
+
+  const showContentField =
+    form.itemType === 'prompt' ||
+    form.itemType === 'note' ||
+    form.metaKind === 'component' ||
+    Boolean(form.content.trim());
 
   return (
     <div
@@ -198,7 +393,7 @@ export function ResourceModal({
           </button>
         </div>
 
-        {/* Magic Paste section: paste anything and let Gemini pre-fill the form */}
+        {/* Magic Paste section */}
         {!editingItem && (
           <div className="mt-5 p-4 rounded-xl bg-canvas border border-hairline">
             <div className="flex items-center justify-between gap-3 mb-2">
@@ -209,7 +404,7 @@ export function ResourceModal({
                 Magic Paste
               </label>
               <span className="text-[11px] text-ink-muted">
-                URL, prompt, or rough note
+                URL, GitHub repo, fonts, hexes, snippet, or note
               </span>
             </div>
 
@@ -218,13 +413,13 @@ export function ResourceModal({
               rows={2}
               value={magicInput}
               onChange={(e) => setMagicInput(e.target.value)}
-              placeholder="Paste any link (https://...), reusable prompt, or quick note…"
+              placeholder="Paste a website or GitHub link, font pairing, hex palette, component snippet, or prompt…"
               className="w-full p-2.5 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y"
             />
 
             <div className="mt-2.5 flex items-center justify-between gap-3">
               <p className="text-[11px] text-ink-muted">
-                Detects type, category, pricing, summary, and tags automatically.
+                Detects links, GitHub repos, font pairings, palettes, and UI components automatically.
               </p>
               <button
                 type="button"
@@ -264,39 +459,66 @@ export function ResourceModal({
             </div>
           )}
 
-          <div>
-            <span className="block text-xs font-medium text-ink-secondary mb-1.5">
-              Type
-            </span>
-            <div className="inline-flex items-center p-1 bg-card border border-hairline rounded-lg">
-              {ITEM_TYPES.map((typeOption) => {
-                const active = form.itemType === typeOption;
-                return (
-                  <button
-                    key={typeOption}
-                    type="button"
-                    onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        itemType: typeOption,
-                        pricing:
-                          typeOption === 'prompt' || typeOption === 'note'
-                            ? 'N/A'
-                            : prev.pricing === 'N/A'
-                              ? 'Free'
-                              : prev.pricing,
-                      }))
-                    }
-                    className={`px-3.5 py-1.5 text-xs font-medium capitalize rounded-md border transition-colors cursor-pointer ${
-                      active
-                        ? 'bg-raised text-ink border-hairline'
-                        : 'text-ink-muted hover:text-ink border-transparent'
-                    }`}
-                  >
-                    {typeOption}
-                  </button>
-                );
-              })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <span className="block text-xs font-medium text-ink-secondary mb-1.5">
+                Type
+              </span>
+              <div className="inline-flex items-center p-1 bg-card border border-hairline rounded-lg flex-wrap">
+                {ITEM_TYPES.map((typeOption) => {
+                  const active = form.itemType === typeOption;
+                  return (
+                    <button
+                      key={typeOption}
+                      type="button"
+                      onClick={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          itemType: typeOption,
+                          pricing:
+                            typeOption === 'prompt' || typeOption === 'note'
+                              ? 'N/A'
+                              : prev.pricing === 'N/A'
+                                ? 'Free'
+                                : prev.pricing,
+                        }))
+                      }
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-raised text-ink border-hairline'
+                          : 'text-ink-muted hover:text-ink border-transparent'
+                      }`}
+                    >
+                      {TYPE_LABELS[typeOption]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span className="block text-xs font-medium text-ink-secondary mb-1.5">
+                Card preview preset
+              </span>
+              <div className="inline-flex items-center p-1 bg-card border border-hairline rounded-lg flex-wrap">
+                {META_KIND_OPTIONS.map((option) => {
+                  const active = form.metaKind === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => handleMetaKindChange(option.id)}
+                      className={`px-2.5 py-1.5 text-xs font-medium rounded-md border transition-colors cursor-pointer whitespace-nowrap ${
+                        active
+                          ? 'bg-raised text-ink border-hairline'
+                          : 'text-ink-muted hover:text-ink border-transparent'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -313,7 +535,7 @@ export function ResourceModal({
               required
               value={form.title}
               onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-              placeholder="e.g., Phosphor Icons"
+              placeholder="e.g., Phosphor Icons, Editorial Serif Pair, Liquid Glass Button"
               className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
             />
           </div>
@@ -333,7 +555,7 @@ export function ResourceModal({
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, description: e.target.value }))
               }
-              placeholder="Concise summary of what this resource is and why it's useful."
+              placeholder="Concise summary of what this resource is and when to use it."
               className="w-full p-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y"
             />
           </div>
@@ -392,47 +614,291 @@ export function ResourceModal({
             </div>
           </div>
 
-          {form.itemType !== 'prompt' && (
-            <div>
-              <label
-                htmlFor="resource-url"
-                className="block text-xs font-medium text-ink-secondary mb-1.5"
-              >
-                URL {form.itemType === 'note' ? '(optional)' : ''}
-              </label>
-              <input
-                id="resource-url"
-                type="url"
-                required={form.itemType === 'link'}
-                value={form.url}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, url: e.target.value }))
-                }
-                placeholder="https://example.com"
-                className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted font-mono"
-              />
-              {duplicateMatch && (
-                <div
-                  role="status"
-                  className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-raised border border-hairline text-xs text-ink-secondary"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink" aria-hidden="true" />
-                  <span>
-                    This URL already exists in your directory under{' '}
-                    <strong className="font-medium text-ink">“{duplicateMatch.title}”</strong>.
-                  </span>
+          {/* Rich Designer Preview Fields */}
+          {form.metaKind === 'font_pairing' && (
+            <div className="p-4 rounded-xl bg-canvas border border-hairline space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-ink">
+                  Live Google Font Pairing
+                </span>
+                <span className="text-[11px] text-ink-muted">
+                  Loads directly inside the card
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="font-heading"
+                    className="block text-[11px] font-medium text-ink-secondary mb-1"
+                  >
+                    Heading Font
+                  </label>
+                  <input
+                    id="font-heading"
+                    type="text"
+                    required
+                    value={form.headingFont}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, headingFont: e.target.value }))
+                    }
+                    placeholder="Instrument Serif"
+                    className="w-full h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="font-body"
+                    className="block text-[11px] font-medium text-ink-secondary mb-1"
+                  >
+                    Body Font
+                  </label>
+                  <input
+                    id="font-body"
+                    type="text"
+                    value={form.bodyFont}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, bodyFont: e.target.value }))
+                    }
+                    placeholder="DM Sans"
+                    className="w-full h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label
+                    htmlFor="font-aesthetic"
+                    className="block text-[11px] font-medium text-ink-secondary mb-1"
+                  >
+                    Aesthetic / Use Case
+                  </label>
+                  <input
+                    id="font-aesthetic"
+                    type="text"
+                    value={form.fontAesthetic}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, fontAesthetic: e.target.value }))
+                    }
+                    placeholder="Modern SaaS, Editorial, Vintage"
+                    className="w-full h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="font-sample"
+                    className="block text-[11px] font-medium text-ink-secondary mb-1"
+                  >
+                    Sample Line (optional)
+                  </label>
+                  <input
+                    id="font-sample"
+                    type="text"
+                    value={form.sampleText}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, sampleText: e.target.value }))
+                    }
+                    placeholder="Crafted interfaces with editorial poise."
+                    className="w-full h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
+                  />
+                </div>
+              </div>
+
+              {(cleanHeadingFont || cleanBodyFont) && (
+                <div className="p-3 rounded-lg bg-card border border-hairline">
+                  <p
+                    style={{
+                      fontFamily: `"${cleanHeadingFont || cleanBodyFont}", var(--font-display)`,
+                    }}
+                    className="text-base font-semibold text-ink truncate"
+                  >
+                    Aa · {cleanHeadingFont || cleanBodyFont}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: `"${cleanBodyFont || cleanHeadingFont}", var(--font-sans)`,
+                    }}
+                    className="mt-0.5 text-xs text-ink-secondary truncate"
+                  >
+                    {form.sampleText.trim() ||
+                      `Paired with ${cleanBodyFont || cleanHeadingFont} for crisp hierarchy.`}
+                  </p>
                 </div>
               )}
             </div>
           )}
 
-          {form.itemType !== 'link' && (
+          {form.metaKind === 'palette' && (
+            <div className="p-4 rounded-xl bg-canvas border border-hairline space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor="palette-colors-input"
+                  className="text-xs font-medium text-ink"
+                >
+                  Color Swatches (2–8 hex codes)
+                </label>
+                <span className="text-[11px] text-ink-muted">
+                  Click swatch on card to copy
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="palette-colors-input"
+                  type="text"
+                  value={form.paletteColors}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, paletteColors: e.target.value }))
+                  }
+                  placeholder="#F7F4EE, #1F1B16, #D9363E, #0E9384"
+                  className="flex-1 h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm font-mono text-ink placeholder:text-ink-muted"
+                />
+                <input
+                  type="color"
+                  value={pickerColor}
+                  onChange={(e) => setPickerColor(e.target.value)}
+                  aria-label="Pick color to add"
+                  className="w-9 h-9 p-0.5 bg-raised border border-hairline rounded-lg cursor-pointer shrink-0"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSwatch}
+                  className="inline-flex items-center gap-1 px-2.5 h-9 text-xs font-medium bg-card border border-hairline hover:border-ink-secondary text-ink rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              {parsedSwatches.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {parsedSwatches.map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => handleRemoveSwatch(hex)}
+                      title={`Click to remove ${hex}`}
+                      className="inline-flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-lg bg-card border border-hairline hover:border-danger text-xs font-mono text-ink cursor-pointer"
+                    >
+                      <span
+                        style={{ backgroundColor: hex }}
+                        className="w-3.5 h-3.5 rounded-full border border-hairline"
+                      />
+                      <span>{hex}</span>
+                      <X className="w-3 h-3 text-ink-muted" aria-hidden="true" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {form.metaKind === 'component' && (
+            <div className="p-4 rounded-xl bg-canvas border border-hairline space-y-2">
+              <label
+                htmlFor="component-framework"
+                className="block text-xs font-medium text-ink"
+              >
+                Component Framework / Stack
+              </label>
+              <input
+                id="component-framework"
+                type="text"
+                value={form.componentFramework}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    componentFramework: e.target.value,
+                  }))
+                }
+                placeholder="Tailwind, CSS, React, Framer Motion"
+                className="w-full h-9 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted"
+              />
+            </div>
+          )}
+
+          {/* URL and GitHub Repository URL fields */}
+          <div className="grid grid-cols-1 gap-4">
+            {form.itemType !== 'prompt' && (
+              <div>
+                <label
+                  htmlFor="resource-url"
+                  className="block text-xs font-medium text-ink-secondary mb-1.5"
+                >
+                  {form.itemType === 'link'
+                    ? 'Website URL'
+                    : form.itemType === 'repo'
+                      ? 'Website / Docs URL (optional)'
+                      : 'Reference URL (optional)'}
+                </label>
+                <input
+                  id="resource-url"
+                  type="url"
+                  required={form.itemType === 'link'}
+                  value={form.url}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, url: e.target.value }))
+                  }
+                  placeholder="https://example.com"
+                  className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted font-mono"
+                />
+              </div>
+            )}
+
+            <div>
+              <label
+                htmlFor="resource-repo-url"
+                className="block text-xs font-medium text-ink-secondary mb-1.5"
+              >
+                {form.itemType === 'repo'
+                  ? 'GitHub Repository URL'
+                  : 'GitHub Repository URL (optional — adds top-right GitHub button)'}
+              </label>
+              <input
+                id="resource-repo-url"
+                type="url"
+                required={form.itemType === 'repo'}
+                value={form.repoUrl}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, repoUrl: e.target.value }))
+                }
+                placeholder="https://github.com/owner/repository"
+                className="w-full h-10 px-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted font-mono"
+              />
+            </div>
+
+            {duplicateMatch && (
+              <div
+                role="status"
+                className="flex items-start gap-2 p-2.5 rounded-lg bg-raised border border-hairline text-xs text-ink-secondary"
+              >
+                <AlertTriangle
+                  className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink"
+                  aria-hidden="true"
+                />
+                <span>
+                  This link already exists in your directory under{' '}
+                  <strong className="font-medium text-ink">
+                    “{duplicateMatch.title}”
+                  </strong>
+                  .
+                </span>
+              </div>
+            )}
+          </div>
+
+          {showContentField && (
             <div>
               <label
                 htmlFor="resource-content"
                 className="block text-xs font-medium text-ink-secondary mb-1.5"
               >
-                {form.itemType === 'prompt' ? 'Prompt Text' : 'Note Content'}
+                {form.metaKind === 'component'
+                  ? 'Component Code / Snippet'
+                  : form.itemType === 'prompt'
+                    ? 'Prompt Text'
+                    : 'Note Content'}
               </label>
               <textarea
                 id="resource-content"
@@ -443,12 +909,16 @@ export function ResourceModal({
                   setForm((prev) => ({ ...prev, content: e.target.value }))
                 }
                 placeholder={
-                  form.itemType === 'prompt'
-                    ? 'Paste the reusable prompt template here…'
-                    : 'Write your personal notes or takeaways here…'
+                  form.metaKind === 'component'
+                    ? 'Paste your reusable Tailwind / CSS / React snippet here…'
+                    : form.itemType === 'prompt'
+                      ? 'Paste the reusable prompt template here…'
+                      : 'Write your personal notes or takeaways here…'
                 }
                 className={`w-full p-3 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-lg text-sm text-ink placeholder:text-ink-muted resize-y ${
-                  form.itemType === 'prompt' ? 'font-mono text-[13px]' : ''
+                  form.itemType === 'prompt' || form.metaKind === 'component'
+                    ? 'font-mono text-[13px]'
+                    : ''
                 }`}
               />
             </div>

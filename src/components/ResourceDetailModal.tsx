@@ -2,16 +2,21 @@ import { useEffect, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
+  Code2,
   Copy,
   FileText,
+  Github,
   Lock,
+  Palette,
   Pencil,
   Terminal,
+  Type as TypeIcon,
   X,
 } from 'lucide-react';
 import type { ResourceItem } from '../shared/constants.ts';
 import { getCategoryAccent, getPricingTheme } from '../shared/theme.ts';
-import { getHostname, getSafeHref } from '../utils/url.ts';
+import { getGoogleFontsBrowseUrl, loadGoogleFonts } from '../utils/fonts.ts';
+import { getHostname, getRepoDisplayLabel, getSafeHref } from '../utils/url.ts';
 
 interface ResourceDetailModalProps {
   item: ResourceItem | null;
@@ -24,8 +29,8 @@ interface ResourceDetailModalProps {
 }
 
 /**
- * Expanded overlay reader for Prompts and Notes using the warm neutral ramp,
- * raised prompt surface, muted pricing metadata, and #1F1B16 focus rings.
+ * Expanded overlay reader for Prompts, Notes, Font Pairings, Color Palettes,
+ * and Reusable Components so long text and rich previews never stretch grid rows.
  */
 export function ResourceDetailModal({
   item,
@@ -37,10 +42,22 @@ export function ResourceDetailModal({
   onEdit,
 }: ResourceDetailModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedHex, setCopiedHex] = useState<string | null>(null);
+
+  const fontMeta = item?.meta?.kind === 'font_pairing' ? item.meta : null;
+  const paletteMeta = item?.meta?.kind === 'palette' ? item.meta : null;
+  const componentMeta = item?.meta?.kind === 'component' ? item.meta : null;
 
   useEffect(() => {
     setCopied(false);
+    setCopiedHex(null);
   }, [item?.id]);
+
+  useEffect(() => {
+    if (fontMeta) {
+      loadGoogleFonts([fontMeta.headingFont, fontMeta.bodyFont]);
+    }
+  }, [fontMeta]);
 
   useEffect(() => {
     if (!item) return;
@@ -56,20 +73,20 @@ export function ResourceDetailModal({
   if (!item) return null;
 
   const safeHref = getSafeHref(item.url);
+  const safeRepoHref = getSafeHref(item.repoUrl);
   const hostname = getHostname(item.url);
+  const repoLabel = getRepoDisplayLabel(item.repoUrl);
   const pricingTheme = getPricingTheme(item.pricing);
   const categoryAccent = isCategoryHighlighted
     ? getCategoryAccent(item.category)
     : null;
 
-  const handleCopy = async () => {
-    const textToCopy = item.content || item.description;
-    if (!textToCopy) return;
+  const copyText = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(textToCopy);
+      await navigator.clipboard.writeText(text);
     } catch {
       const textarea = document.createElement('textarea');
-      textarea.value = textToCopy;
+      textarea.value = text;
       textarea.style.position = 'fixed';
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
@@ -77,8 +94,66 @@ export function ResourceDetailModal({
       document.execCommand('copy');
       document.body.removeChild(textarea);
     }
+  };
+
+  const handleCopyContent = async () => {
+    const textToCopy =
+      paletteMeta?.colors.join(', ') || item.content || item.description;
+    if (!textToCopy) return;
+    await copyText(textToCopy);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyHex = async (hex: string) => {
+    await copyText(hex);
+    setCopiedHex(hex);
+    window.setTimeout(() => {
+      setCopiedHex((prev) => (prev === hex ? null : prev));
+    }, 1600);
+  };
+
+  const renderTypeBadge = () => {
+    if (fontMeta) {
+      return (
+        <>
+          <TypeIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Font pairing{fontMeta.aesthetic ? ` · ${fontMeta.aesthetic}` : ''}
+          </span>
+        </>
+      );
+    }
+    if (paletteMeta) {
+      return (
+        <>
+          <Palette className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>Color palette</span>
+        </>
+      );
+    }
+    if (componentMeta) {
+      return (
+        <>
+          <Code2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>Component · {componentMeta.framework}</span>
+        </>
+      );
+    }
+    if (item.itemType === 'prompt') {
+      return (
+        <>
+          <Terminal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>Prompt</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <FileText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+        <span>Note</span>
+      </>
+    );
   };
 
   return (
@@ -96,17 +171,7 @@ export function ResourceDetailModal({
         <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-hairline">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-xs text-ink-muted mb-1.5">
-              {item.itemType === 'prompt' ? (
-                <>
-                  <Terminal className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Prompt</span>
-                </>
-              ) : (
-                <>
-                  <FileText className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  <span>Note</span>
-                </>
-              )}
+              {renderTypeBadge()}
               {!item.isPublic && (
                 <>
                   <span aria-hidden="true">·</span>
@@ -126,10 +191,10 @@ export function ResourceDetailModal({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {item.itemType === 'prompt' && item.content && (
+            {(item.itemType === 'prompt' || componentMeta) && item.content && (
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={handleCopyContent}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-raised hover:bg-ink hover:text-card hover:border-ink text-ink transition-colors whitespace-nowrap cursor-pointer"
                 aria-live="polite"
               >
@@ -141,10 +206,43 @@ export function ResourceDetailModal({
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Copy prompt</span>
+                    <span>{componentMeta ? 'Copy code' : 'Copy prompt'}</span>
                   </>
                 )}
               </button>
+            )}
+
+            {paletteMeta && (
+              <button
+                type="button"
+                onClick={handleCopyContent}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-raised hover:bg-ink hover:text-card hover:border-ink text-ink transition-colors whitespace-nowrap cursor-pointer"
+                aria-live="polite"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Copied all!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Copy hexes</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {safeRepoHref && (
+              <a
+                href={safeRepoHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-hairline bg-card hover:border-ink-secondary text-ink-secondary hover:text-ink transition-colors whitespace-nowrap"
+              >
+                <Github className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Repo</span>
+              </a>
             )}
 
             {isAdmin && onEdit && (
@@ -172,14 +270,90 @@ export function ResourceDetailModal({
           </div>
         </div>
 
-        {/* Scrollable reading body */}
-        <div className="px-6 py-5 overflow-y-auto space-y-4">
+        {/* Scrollable reading / specimen body */}
+        <div className="px-6 py-5 overflow-y-auto space-y-5">
           <p className="text-[15px] text-ink-secondary leading-relaxed max-w-prose">
             {item.description}
           </p>
 
+          {fontMeta && (
+            <div className="p-5 rounded-xl bg-raised border border-hairline space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted pb-3 border-b border-hairline">
+                <span>
+                  Heading: <strong className="font-semibold text-ink">{fontMeta.headingFont}</strong>
+                  <span className="mx-2" aria-hidden="true">·</span>
+                  Body: <strong className="font-semibold text-ink">{fontMeta.bodyFont}</strong>
+                </span>
+                {fontMeta.aesthetic && (
+                  <span>Aesthetic: {fontMeta.aesthetic}</span>
+                )}
+              </div>
+
+              <div>
+                <p
+                  style={{
+                    fontFamily: `"${fontMeta.headingFont}", var(--font-display)`,
+                  }}
+                  className="text-2xl sm:text-3xl font-semibold text-ink leading-tight"
+                >
+                  {fontMeta.sampleText ||
+                    'Design systems built with clarity, rhythm, and quiet confidence.'}
+                </p>
+                <p
+                  style={{
+                    fontFamily: `"${fontMeta.bodyFont}", var(--font-sans)`,
+                  }}
+                  className="mt-3 text-[15px] text-ink-secondary leading-relaxed max-w-prose"
+                >
+                  Sphinx of black quartz, judge my vow — 0123456789. Body copy rendered in{' '}
+                  {fontMeta.bodyFont} to preview contrast, aperture, and reading measure alongside{' '}
+                  {fontMeta.headingFont}.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <a
+                  href={getGoogleFontsBrowseUrl(
+                    fontMeta.headingFont,
+                    fontMeta.bodyFont
+                  )}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted"
+                >
+                  <span>Inspect on Google Fonts</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </a>
+              </div>
+            </div>
+          )}
+
+          {paletteMeta && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {paletteMeta.colors.map((hex) => (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => handleCopyHex(hex)}
+                  className="group/swatch text-left rounded-xl border border-hairline bg-canvas p-2.5 hover:border-ink-secondary transition-colors cursor-pointer"
+                >
+                  <div
+                    style={{ backgroundColor: hex }}
+                    className="w-full h-16 rounded-lg border border-hairline"
+                  />
+                  <div className="mt-2 flex items-center justify-between gap-1 text-xs font-mono">
+                    <span className="text-ink font-medium">{hex}</span>
+                    <span className="text-ink-muted">
+                      {copiedHex === hex ? 'Copied' : 'Copy'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {item.content &&
-            (item.itemType === 'prompt' ? (
+            (item.itemType === 'prompt' || componentMeta ? (
               <pre className="p-4 rounded-xl bg-raised border border-hairline font-mono text-[13px] leading-relaxed text-ink whitespace-pre-wrap break-words">
                 {item.content}
               </pre>
@@ -189,17 +363,31 @@ export function ResourceDetailModal({
               </div>
             ))}
 
-          {safeHref && (
-            <div className="pt-1">
-              <a
-                href={safeHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted"
-              >
-                <span>Open reference: {hostname ?? safeHref}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
-              </a>
+          {(safeHref || safeRepoHref) && (
+            <div className="flex flex-wrap items-center gap-4 pt-1">
+              {safeHref && (
+                <a
+                  href={safeHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted"
+                >
+                  <span>Open reference: {hostname ?? safeHref}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </a>
+              )}
+              {safeRepoHref && (
+                <a
+                  href={safeRepoHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-ink hover:underline underline-offset-4 decoration-ink-muted"
+                >
+                  <Github className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{repoLabel ?? safeRepoHref}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </a>
+              )}
             </div>
           )}
         </div>

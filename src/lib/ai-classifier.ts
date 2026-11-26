@@ -5,9 +5,11 @@ import {
   PRICING_OPTIONS,
   type ResourceCategory,
   type ResourceItemType,
+  type ResourceMeta,
   type ResourcePricing,
 } from '../shared/constants.ts';
 import { normalizeTags } from '../shared/tags.ts';
+import { sanitizeResourceMeta } from '../shared/validation.ts';
 import type { UrlMetadataResult } from './url-metadata.ts';
 
 export interface ClassifiedResource {
@@ -18,7 +20,9 @@ export interface ClassifiedResource {
   pricing: ResourcePricing;
   tags: string[];
   url: string | null;
+  repo_url: string | null;
   content: string | null;
+  meta: ResourceMeta | null;
   metadataFetched?: boolean;
   metadataNote?: string | null;
 }
@@ -40,10 +44,23 @@ function getGeminiClient(): GoogleGenAI {
   });
 }
 
+function isGitHubRepoUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname.replace(/^www\./, '').toLowerCase() === 'github.com' &&
+      parsed.pathname.split('/').filter(Boolean).length >= 2
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Calls Gemini (gemini-3.1-flash-lite) strictly on the server with Structured JSON Output
- * to classify raw pasted input (plus optional scraped webpage metadata) into our resource schema,
- * reusing existing canonical tags to prevent hashtag bloat.
+ * to classify pasted URLs, GitHub repos, skills, font pairings, hex palettes, UI components,
+ * prompts, or notes into the directory schema.
  */
 export async function classifyResourceInput(
   rawInput: string,
@@ -84,17 +101,20 @@ export async function classifyResourceInput(
     contents: contextParts.join('\n\n'),
     config: {
       systemInstruction:
-        'You classify pasted inputs into a minimalist design & AI personal resource directory.\n' +
+        'You classify pasted inputs into a personal designer workbench directory.\n' +
         'Rules:\n' +
-        '- Choose item_type: "link" for websites/tools/articles with a URL; "prompt" for reusable AI prompt templates; "note" for personal notes, quotes, font lists, or takeaways.\n' +
+        '- Choose item_type: "repo" for standalone GitHub repositories; "link" for websites, skills, tools, or articles (if a skill/tool also has a GitHub repo mentioned, fill BOTH url and repo_url); "prompt" for reusable AI prompt templates; "note" for personal notes, font pairings, color palettes, or reusable UI code snippets.\n' +
         '- Write a concise, accurate title.\n' +
         '- Write description as exactly 1 crisp, informative sentence (under 24 words).\n' +
         `- Choose category strictly from: ${CATEGORIES.join(', ')}.\n` +
-        `- Choose pricing strictly from: ${PRICING_OPTIONS.join(', ')} (use "N/A" for prompts and personal notes).\n` +
-        '- Return 2 to 4 short lowercase atomic tags (no # prefix). Strongly prefer reusing matching tags from EXISTING_DIRECTORY_TAGS. Avoid compound variants like "layout-tips" or "layout-review"—use separate atomic tags like "layout" and "tips" or "review".\n' +
-        '- For "link", set url to the clean URL and content to empty string.\n' +
-        '- For "prompt", set content to the full cleaned prompt text and url to empty string.\n' +
-        '- For "note", set content to the note body and url to empty string unless a URL was provided.',
+        `- Choose pricing strictly from: ${PRICING_OPTIONS.join(', ')} (use "N/A" for prompts, notes, font pairings, palettes, or component snippets; "Free" for open-source repos unless paid).\n` +
+        '- Return 2 to 4 short lowercase atomic tags (no # prefix). Prefer reusing matching tags from EXISTING_DIRECTORY_TAGS. Avoid compound variants like "layout-tips".\n' +
+        '- Structured enrichment (meta_kind):\n' +
+        '  * If the input describes a font pairing (e.g. "Instrument Serif + DM Sans"), set meta_kind="font_pairing", heading_font, body_font, font_aesthetic (e.g. "Editorial", "Modern SaaS", "Vintage"), and category="Fonts".\n' +
+        '  * If the input lists hex colors (e.g. "#F7F4EE, #1F1B16, #D9363E"), set meta_kind="palette", palette_colors (uppercase #RRGGBB array), and category="Color Palettes".\n' +
+        '  * If the input contains reusable UI component code (CSS, Tailwind, React, animation), set meta_kind="component", component_framework (e.g. "Tailwind", "CSS", "React"), and place the cleaned code in content.\n' +
+        '  * Otherwise set meta_kind="none".\n' +
+        '- For standalone "repo", put the GitHub URL in repo_url and leave url empty unless a separate live homepage exists.',
       responseMimeType: 'application/json',
       responseSchema: {
         type: Type.OBJECT,
@@ -102,7 +122,7 @@ export async function classifyResourceInput(
           item_type: {
             type: Type.STRING,
             enum: [...ITEM_TYPES],
-            description: 'Must be link, prompt, or note.',
+            description: 'Must be link, repo, prompt, or note.',
           },
           title: {
             type: Type.STRING,
@@ -129,12 +149,42 @@ export async function classifyResourceInput(
           },
           url: {
             type: Type.STRING,
-            description: 'External URL if applicable, otherwise empty string.',
+            description: 'Primary website URL if applicable, otherwise empty string.',
+          },
+          repo_url: {
+            type: Type.STRING,
+            description: 'GitHub repository URL if applicable, otherwise empty string.',
           },
           content: {
             type: Type.STRING,
             description:
-              'Prompt text or note body if applicable, otherwise empty string.',
+              'Prompt text, component code, or note body if applicable, otherwise empty string.',
+          },
+          meta_kind: {
+            type: Type.STRING,
+            enum: ['none', 'font_pairing', 'palette', 'component'],
+            description: 'Optional rich designer preview preset.',
+          },
+          heading_font: {
+            type: Type.STRING,
+            description: 'Google Font family for headings when meta_kind is font_pairing.',
+          },
+          body_font: {
+            type: Type.STRING,
+            description: 'Google Font family for body copy when meta_kind is font_pairing.',
+          },
+          font_aesthetic: {
+            type: Type.STRING,
+            description: 'Aesthetic or use case (e.g. Modern SaaS, Editorial, Vintage).',
+          },
+          palette_colors: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: 'Array of #RRGGBB hex codes when meta_kind is palette.',
+          },
+          component_framework: {
+            type: Type.STRING,
+            description: 'Framework or stack (e.g. Tailwind, CSS, React) when meta_kind is component.',
           },
         },
         required: [
@@ -145,7 +195,9 @@ export async function classifyResourceInput(
           'pricing',
           'tags',
           'url',
+          'repo_url',
           'content',
+          'meta_kind',
         ],
       },
     },
@@ -158,12 +210,14 @@ export async function classifyResourceInput(
 
   const parsed = JSON.parse(text) as Record<string, unknown>;
 
-  const item_type: ResourceItemType =
+  let item_type: ResourceItemType =
     typeof parsed.item_type === 'string' &&
     (ITEM_TYPES as readonly string[]).includes(parsed.item_type)
       ? (parsed.item_type as ResourceItemType)
       : urlMeta.isUrl
-        ? 'link'
+        ? isGitHubRepoUrl(urlMeta.normalizedUrl)
+          ? 'repo'
+          : 'link'
         : 'note';
 
   const category: ResourceCategory =
@@ -176,7 +230,7 @@ export async function classifyResourceInput(
     typeof parsed.pricing === 'string' &&
     (PRICING_OPTIONS as readonly string[]).includes(parsed.pricing)
       ? (parsed.pricing as ResourcePricing)
-      : item_type === 'link'
+      : item_type === 'link' || item_type === 'repo'
         ? 'Free'
         : 'N/A';
 
@@ -197,17 +251,57 @@ export async function classifyResourceInput(
       ? parsed.description.trim()
       : 'Curated resource added via Magic Paste.';
 
-  const rawUrl =
+  let rawUrl =
     typeof parsed.url === 'string' && parsed.url.trim()
       ? parsed.url.trim()
-      : urlMeta.isUrl
+      : urlMeta.isUrl && !isGitHubRepoUrl(urlMeta.normalizedUrl)
         ? urlMeta.normalizedUrl
         : null;
+
+  let rawRepoUrl =
+    typeof parsed.repo_url === 'string' && parsed.repo_url.trim()
+      ? parsed.repo_url.trim()
+      : urlMeta.isUrl && isGitHubRepoUrl(urlMeta.normalizedUrl)
+        ? urlMeta.normalizedUrl
+        : null;
+
+  // Normalize standalone GitHub URLs into repo_url cleanly
+  if (item_type === 'repo' && !rawRepoUrl && rawUrl) {
+    rawRepoUrl = rawUrl;
+    rawUrl = null;
+  }
+  if (!rawRepoUrl && isGitHubRepoUrl(rawUrl) && item_type === 'link') {
+    item_type = 'repo';
+    rawRepoUrl = rawUrl;
+    rawUrl = null;
+  }
 
   const rawContent =
     typeof parsed.content === 'string' && parsed.content.trim()
       ? parsed.content.trim()
       : null;
+
+  let candidateMeta: Record<string, unknown> | null = null;
+  if (parsed.meta_kind === 'font_pairing') {
+    candidateMeta = {
+      kind: 'font_pairing',
+      headingFont: parsed.heading_font,
+      bodyFont: parsed.body_font,
+      aesthetic: parsed.font_aesthetic,
+    };
+  } else if (parsed.meta_kind === 'palette') {
+    candidateMeta = {
+      kind: 'palette',
+      colors: parsed.palette_colors,
+    };
+  } else if (parsed.meta_kind === 'component') {
+    candidateMeta = {
+      kind: 'component',
+      framework: parsed.component_framework,
+    };
+  }
+
+  const meta = sanitizeResourceMeta(candidateMeta);
 
   return {
     item_type,
@@ -217,7 +311,9 @@ export async function classifyResourceInput(
     pricing,
     tags,
     url: rawUrl,
+    repo_url: rawRepoUrl,
     content: rawContent,
+    meta,
     metadataFetched: urlMeta.fetched,
     metadataNote: urlMeta.isUrl
       ? urlMeta.fetched

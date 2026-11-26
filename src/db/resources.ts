@@ -1,4 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
+import type { ResourceMeta } from '../shared/constants.ts';
 import { db } from './index.ts';
 import { resources } from './schema.ts';
 
@@ -10,7 +11,9 @@ export interface ResourceWriteInput {
   pricing: string;
   tags: string[];
   url: string | null;
+  repoUrl: string | null;
   content: string | null;
+  meta: ResourceMeta | null;
   isPublic: boolean;
   userId?: number | null;
 }
@@ -54,7 +57,9 @@ export async function createResource(input: ResourceWriteInput) {
         pricing: input.pricing,
         tags: input.tags,
         url: input.url,
+        repoUrl: input.repoUrl,
         content: input.content,
+        meta: input.meta,
         isPublic: input.isPublic,
         userId: input.userId ?? null,
       })

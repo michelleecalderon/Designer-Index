@@ -30,3 +30,23 @@ export function getFaviconUrl(rawUrl: string | null | undefined): string | null 
   if (!host) return null;
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
 }
+
+/**
+ * Extracts a concise "owner/repo" label for GitHub URLs, falling back to hostname + path.
+ */
+export function getRepoDisplayLabel(rawUrl: string | null | undefined): string | null {
+  const safe = getSafeHref(rawUrl);
+  if (!safe) return null;
+  try {
+    const parsed = new URL(safe);
+    const host = parsed.hostname.replace(/^www\./, '');
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (host === 'github.com' && segments.length >= 2) {
+      return `${segments[0]}/${segments[1]}`;
+    }
+    const path = segments.slice(0, 2).join('/');
+    return path ? `${host}/${path}` : host;
+  } catch {
+    return null;
+  }
+}

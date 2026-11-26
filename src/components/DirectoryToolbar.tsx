@@ -1,10 +1,11 @@
-import { Loader2, Search, Sparkles, X } from 'lucide-react';
+import { LayoutGrid, List, Loader2, Search, Sparkles, X } from 'lucide-react';
 import type { FormEvent, RefObject } from 'react';
 import { CATEGORIES, type ResourceItemType } from '../shared/constants.ts';
 import { getCategoryAccent, getPricingTheme } from '../shared/theme.ts';
 
 export type PricingFilter = 'All' | 'Free' | 'Freemium' | 'Paid';
 export type TypeFilter = 'all' | ResourceItemType;
+export type ViewMode = 'grid' | 'table';
 
 const PRICING_FILTERS: PricingFilter[] = ['All', 'Free', 'Freemium', 'Paid'];
 
@@ -20,6 +21,8 @@ interface DirectoryToolbarProps {
   typeCounts: Record<TypeFilter, number>;
   pricingFilter: PricingFilter;
   onPricingChange: (value: PricingFilter) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   selectedCategory: string;
   onCategoryChange: (category: string) => void;
   categoryCounts: Record<string, number>;
@@ -27,9 +30,8 @@ interface DirectoryToolbarProps {
 }
 
 /**
- * Dual-mode search bar (instant keyword typing + Enter/button AI semantic search),
- * type filter tabs (All / Links / Prompts / Notes), color-differentiated pricing filter bar,
- * and mobile category picker.
+ * Dual-mode search bar, type filter tabs (All / Links / Repos / Prompts / Notes),
+ * neutral segmented pricing bar, Grid/Table view switch, and mobile category picker.
  */
 export function DirectoryToolbar({
   searchInputRef,
@@ -43,6 +45,8 @@ export function DirectoryToolbar({
   typeCounts,
   pricingFilter,
   onPricingChange,
+  viewMode,
+  onViewModeChange,
   selectedCategory,
   onCategoryChange,
   categoryCounts,
@@ -58,6 +62,7 @@ export function DirectoryToolbar({
   const TYPE_TABS: Array<{ id: TypeFilter; label: string }> = [
     { id: 'all', label: 'All' },
     { id: 'link', label: 'Links' },
+    { id: 'repo', label: 'Repos' },
     { id: 'prompt', label: 'Prompts' },
     { id: 'note', label: 'Notes' },
   ];
@@ -79,7 +84,7 @@ export function DirectoryToolbar({
           type="search"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Filter by keyword, or describe what you need and press Enter for AI…"
+          placeholder="Filter by keyword, font, hex, repo, or describe what you need and press Enter for AI…"
           aria-label="Search resources"
           className="w-full h-11 pl-10 pr-40 bg-raised border border-hairline focus:border-ink focus:outline-none rounded-xl text-sm text-ink placeholder:text-ink-muted transition-colors"
         />
@@ -125,8 +130,8 @@ export function DirectoryToolbar({
         </div>
       </form>
 
-      {/* Type filter tabs + Pricing filter controls (identical segmented styling) */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Type filter tabs + Pricing filter + Grid/Table switch */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
         <div
           className="inline-flex items-center p-1 bg-card border border-hairline rounded-xl overflow-x-auto max-w-full"
           role="group"
@@ -140,7 +145,7 @@ export function DirectoryToolbar({
                 type="button"
                 onClick={() => onTypeChange(tab.id)}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
                   active
                     ? 'bg-raised text-ink border-hairline'
                     : 'text-ink-muted hover:text-ink border-transparent'
@@ -155,39 +160,78 @@ export function DirectoryToolbar({
           })}
         </div>
 
-        <div
-          className={`inline-flex items-center p-1 bg-card border border-hairline rounded-xl shrink-0 transition-opacity ${
-            pricingDisabled ? 'opacity-45 pointer-events-none' : ''
-          }`}
-          role="group"
-          aria-label="Filter by pricing"
-          aria-disabled={pricingDisabled}
-        >
-          {PRICING_FILTERS.map((option) => {
-            const active = pricingFilter === option;
-            const pricingTheme = getPricingTheme(option);
-            const activeClasses = pricingTheme
-              ? pricingTheme.filterActive
-              : 'bg-raised text-ink border-hairline';
-            const inactiveClasses = pricingTheme
-              ? `text-ink-muted ${pricingTheme.filterHover} border-transparent`
-              : 'text-ink-muted hover:text-ink border-transparent';
+        <div className="flex items-center gap-2 shrink-0">
+          <div
+            className={`inline-flex items-center p-1 bg-card border border-hairline rounded-xl shrink-0 transition-opacity ${
+              pricingDisabled ? 'opacity-45 pointer-events-none' : ''
+            }`}
+            role="group"
+            aria-label="Filter by pricing"
+            aria-disabled={pricingDisabled}
+          >
+            {PRICING_FILTERS.map((option) => {
+              const active = pricingFilter === option;
+              const pricingTheme = getPricingTheme(option);
+              const activeClasses = pricingTheme
+                ? pricingTheme.filterActive
+                : 'bg-raised text-ink border-hairline';
+              const inactiveClasses = pricingTheme
+                ? `text-ink-muted ${pricingTheme.filterHover} border-transparent`
+                : 'text-ink-muted hover:text-ink border-transparent';
 
-            return (
-              <button
-                key={option}
-                type="button"
-                disabled={pricingDisabled}
-                onClick={() => onPricingChange(option)}
-                aria-pressed={active}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
-                  active ? activeClasses : inactiveClasses
-                }`}
-              >
-                {option}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  disabled={pricingDisabled}
+                  onClick={() => onPricingChange(option)}
+                  aria-pressed={active}
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
+                    active ? activeClasses : inactiveClasses
+                  }`}
+                >
+                  {option}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="inline-flex items-center p-1 bg-card border border-hairline rounded-xl shrink-0"
+            role="group"
+            aria-label="Layout view"
+          >
+            <button
+              type="button"
+              onClick={() => onViewModeChange('grid')}
+              aria-pressed={viewMode === 'grid'}
+              aria-label="Grid view"
+              title="Card Grid"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-raised text-ink border-hairline'
+                  : 'text-ink-muted hover:text-ink border-transparent'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('table')}
+              aria-pressed={viewMode === 'table'}
+              aria-label="Table view"
+              title="Compact Table"
+              className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-colors duration-150 whitespace-nowrap shrink-0 cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-raised text-ink border-hairline'
+                  : 'text-ink-muted hover:text-ink border-transparent'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+          </div>
         </div>
       </div>
 

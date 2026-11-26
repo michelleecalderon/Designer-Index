@@ -2,11 +2,13 @@ import { relations } from 'drizzle-orm';
 import {
   boolean,
   integer,
+  jsonb,
   pgTable,
   serial,
   text,
   timestamp,
 } from 'drizzle-orm/pg-core';
+import type { ResourceMeta } from '../shared/constants.ts';
 
 // Stores authenticated users synchronized from Firebase Authentication.
 export const users = pgTable('users', {
@@ -16,17 +18,19 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Core table for the resource directory: supports external links, copyable prompts, and expandable notes.
+// Core table for the designer workbench: links, GitHub repos, prompts, notes, palettes, font pairings, and UI components.
 export const resources = pgTable('resources', {
   id: serial('id').primaryKey(),
-  itemType: text('item_type').notNull(), // 'link' | 'prompt' | 'note'
+  itemType: text('item_type').notNull(), // 'link' | 'repo' | 'prompt' | 'note'
   title: text('title').notNull(),
   description: text('description').notNull(),
   category: text('category').notNull(),
   pricing: text('pricing').notNull().default('Free'), // 'Free' | 'Freemium' | 'Paid' | 'N/A'
   tags: text('tags').array().notNull().default([]),
   url: text('url'),
+  repoUrl: text('repo_url'),
   content: text('content'),
+  meta: jsonb('meta').$type<ResourceMeta | null>(),
   isPublic: boolean('is_public').notNull().default(true),
   userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),

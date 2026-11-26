@@ -10,6 +10,7 @@ import {
   DirectoryToolbar,
   type PricingFilter,
   type TypeFilter,
+  type ViewMode,
 } from './components/DirectoryToolbar.tsx';
 import { LoginView } from './components/LoginView.tsx';
 import { ResourceCard } from './components/ResourceCard.tsx';
@@ -19,10 +20,12 @@ import {
   type ClassifiedDraft,
   type ResourceFormValues,
 } from './components/ResourceModal.tsx';
+import { ResourceTable } from './components/ResourceTable.tsx';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
-import type { ResourceItem } from './shared/constants.ts';
+import type { ResourceItem, ResourceMeta } from './shared/constants.ts';
 import { normalizeTags } from './shared/tags.ts';
 import { getCategoryAccent } from './shared/theme.ts';
+import { sanitizeResourceMeta } from './shared/validation.ts';
 
 function DirectoryApp() {
   const { isAdmin, authLoading, getToken, signOut } = useAuth();
@@ -37,6 +40,7 @@ function DirectoryApp() {
   const [pricingFilter, setPricingFilter] = useState<PricingFilter>('All');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Grounded AI semantic search state (triggered on Enter or "Ask AI")
   const [aiMatchedIds, setAiMatchedIds] = useState<number[] | null>(null);
@@ -187,6 +191,34 @@ function DirectoryApp() {
       throw new Error('Your admin session has expired. Please sign in again.');
     }
 
+    let rawMeta: ResourceMeta | null = null;
+    if (values.metaKind === 'font_pairing') {
+      rawMeta = {
+        kind: 'font_pairing',
+        headingFont: values.headingFont,
+        bodyFont: values.bodyFont,
+        ...(values.fontAesthetic.trim()
+          ? { aesthetic: values.fontAesthetic.trim() }
+          : {}),
+        ...(values.sampleText.trim()
+          ? { sampleText: values.sampleText.trim() }
+          : {}),
+      };
+    } else if (values.metaKind === 'palette') {
+      rawMeta = {
+        kind: 'palette',
+        colors: values.paletteColors
+          .split(/[\s,;]+/)
+          .map((c) => c.trim())
+          .filter(Boolean),
+      };
+    } else if (values.metaKind === 'component') {
+      rawMeta = {
+        kind: 'component',
+        framework: values.componentFramework.trim() || 'Tailwind',
+      };
+    }
+
     const payload = {
       itemType: values.itemType,
       title: values.title,
@@ -195,7 +227,9 @@ function DirectoryApp() {
       pricing: values.pricing,
       tags: normalizeTags(values.tags, 4),
       url: values.url.trim() || null,
+      repoUrl: values.repoUrl.trim() || null,
       content: values.content.trim() || null,
+      meta: sanitizeResourceMeta(rawMeta),
       isPublic: values.isPublic,
     };
 
@@ -286,6 +320,7 @@ function DirectoryApp() {
     const counts: Record<TypeFilter, number> = {
       all: resources.length,
       link: 0,
+      repo: 0,
       prompt: 0,
       note: 0,
     };
@@ -293,6 +328,9 @@ function DirectoryApp() {
       if (item.itemType === 'link') counts.link += 1;
       else if (item.itemType === 'prompt') counts.prompt += 1;
       else if (item.itemType === 'note') counts.note += 1;
+      if (item.itemType === 'repo' || Boolean(item.repoUrl)) {
+        counts.repo += 1;
+      }
     }
     return counts;
   }, [resources]);
@@ -308,7 +346,11 @@ function DirectoryApp() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     const matches = resources.filter((item) => {
-      if (typeFilter !== 'all' && item.itemType !== typeFilter) {
+      if (typeFilter === 'repo') {
+        if (item.itemType !== 'repo' && !item.repoUrl) {
+          return false;
+        }
+      } else if (typeFilter !== 'all' && item.itemType !== typeFilter) {
         return false;
       }
       if (selectedCategory !== 'All' && item.category !== selectedCategory) {
@@ -327,6 +369,15 @@ function DirectoryApp() {
 
       if (!normalizedQuery) return true;
 
+      let metaSearch = '';
+      if (item.meta?.kind === 'font_pairing') {
+        metaSearch = `${item.meta.headingFont} ${item.meta.bodyFont} ${item.meta.aesthetic ?? ''} ${item.meta.sampleText ?? ''}`;
+      } else if (item.meta?.kind === 'palette') {
+        metaSearch = item.meta.colors.join(' ');
+      } else if (item.meta?.kind === 'component') {
+        metaSearch = item.meta.framework;
+      }
+
       const haystack = [
         item.title,
         item.description,
@@ -335,6 +386,8 @@ function DirectoryApp() {
         item.tags.join(' '),
         item.content ?? '',
         item.url ?? '',
+        item.repoUrl ?? '',
+        metaSearch,
       ]
         .join(' ')
         .toLowerCase();
@@ -454,6 +507,8 @@ function DirectoryApp() {
               typeCounts={typeCounts}
               pricingFilter={pricingFilter}
               onPricingChange={setPricingFilter}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               selectedCategory={selectedCategory}
               onCategoryChange={setSelectedCategory}
               categoryCounts={categoryCounts}
@@ -610,31 +665,50 @@ function DirectoryApp() {
               </div>
             )}
 
-            {!loading && !loadError && filteredResources.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-                {filteredResources.map((item) => (
-                  <ResourceCard
-                    key={item.id}
-                    item={item}
-                    isAdmin={isAdmin}
-                    isCategoryHighlighted={
-                      selectedCategory !== 'All' &&
-                      selectedCategory === item.category
-                    }
-                    selectedTag={selectedTag}
-                    onTagClick={(tag) =>
-                      setSelectedTag((prev) => (prev === tag ? null : tag))
-                    }
-                    onInspect={(target) => setInspectingItem(target)}
-                    onEdit={(target) => {
-                      setEditingItem(target);
-                      setModalOpen(true);
-                    }}
-                    onDelete={handleDeleteResource}
-                  />
-                ))}
-              </div>
-            )}
+            {!loading &&
+              !loadError &&
+              filteredResources.length > 0 &&
+              (viewMode === 'table' ? (
+                <ResourceTable
+                  items={filteredResources}
+                  isAdmin={isAdmin}
+                  selectedCategory={selectedCategory}
+                  selectedTag={selectedTag}
+                  onTagClick={(tag) =>
+                    setSelectedTag((prev) => (prev === tag ? null : tag))
+                  }
+                  onInspect={(target) => setInspectingItem(target)}
+                  onEdit={(target) => {
+                    setEditingItem(target);
+                    setModalOpen(true);
+                  }}
+                  onDelete={handleDeleteResource}
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+                  {filteredResources.map((item) => (
+                    <ResourceCard
+                      key={item.id}
+                      item={item}
+                      isAdmin={isAdmin}
+                      isCategoryHighlighted={
+                        selectedCategory !== 'All' &&
+                        selectedCategory === item.category
+                      }
+                      selectedTag={selectedTag}
+                      onTagClick={(tag) =>
+                        setSelectedTag((prev) => (prev === tag ? null : tag))
+                      }
+                      onInspect={(target) => setInspectingItem(target)}
+                      onEdit={(target) => {
+                        setEditingItem(target);
+                        setModalOpen(true);
+                      }}
+                      onDelete={handleDeleteResource}
+                    />
+                  ))}
+                </div>
+              ))}
           </main>
         </div>
       </div>
