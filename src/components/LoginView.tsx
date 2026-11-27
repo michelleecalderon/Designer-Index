@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, LogOut } from 'lucide-react';
+import { Check, Copy, Lock, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface LoginViewProps {
@@ -9,11 +9,20 @@ interface LoginViewProps {
 /**
  * Hidden /login view (intentionally unlinked from the public header)
  * styled with the warm neutral ramp, #1F1B16 primary buttons, and #DC2626 errors.
+ * When signed in without admin authorization, surfaces a copyable Firebase UID helper.
  */
 export function LoginView({ onNavigateHome }: LoginViewProps) {
-  const { user, isAdmin, authLoading, authError, signInWithGoogle, signOut } =
-    useAuth();
+  const {
+    user,
+    isAdmin,
+    adminConfigured,
+    authLoading,
+    authError,
+    signInWithGoogle,
+    signOut,
+  } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [copiedUid, setCopiedUid] = useState(false);
 
   const handleSignIn = async () => {
     setSubmitting(true);
@@ -23,6 +32,32 @@ export function LoginView({ onNavigateHome }: LoginViewProps) {
       onNavigateHome();
     }
   };
+
+  const handleCopyUid = async () => {
+    if (!user?.uid) return;
+    try {
+      await navigator.clipboard.writeText(user.uid);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = user.uid;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+    setCopiedUid(true);
+    window.setTimeout(() => setCopiedUid(false), 2000);
+  };
+
+  const deniedNotice =
+    authError ??
+    (user && !isAdmin && !authLoading
+      ? !adminConfigured
+        ? 'Admin access is locked because ADMIN_UID or ADMIN_EMAIL is not configured on the server.'
+        : `Signed in as ${user.email ?? 'this account'}, which does not match the configured admin account.`
+      : null);
 
   return (
     <div className="min-h-screen bg-canvas text-ink flex flex-col items-center justify-center px-6">
@@ -40,12 +75,21 @@ export function LoginView({ onNavigateHome }: LoginViewProps) {
           Sign in with your authorized Google account to view private entries and manage the directory.
         </p>
 
-        {authError && (
+        {!authLoading && !adminConfigured && !deniedNotice && (
+          <div
+            role="status"
+            className="mb-5 p-3 rounded-lg bg-danger/8 border border-danger/30 text-xs text-danger leading-relaxed"
+          >
+            Admin access is currently locked because neither ADMIN_UID nor ADMIN_EMAIL is configured on the server.
+          </div>
+        )}
+
+        {deniedNotice && (
           <div
             role="alert"
             className="mb-5 p-3 rounded-lg bg-danger/8 border border-danger/30 text-xs text-danger leading-relaxed"
           >
-            {authError}
+            {deniedNotice}
           </div>
         )}
 
@@ -74,6 +118,40 @@ export function LoginView({ onNavigateHome }: LoginViewProps) {
           </div>
         ) : (
           <div className="space-y-3">
+            {user && !isAdmin && (
+              <div className="p-3 rounded-lg bg-raised border border-hairline space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-ink-secondary">
+                    Your Firebase UID
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyUid}
+                    aria-live="polite"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium bg-card border border-hairline hover:border-ink-secondary text-ink rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    {copiedUid ? (
+                      <>
+                        <Check className="w-3 h-3" aria-hidden="true" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" aria-hidden="true" />
+                        <span>Copy UID</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="font-mono text-xs text-ink break-all select-all">
+                  {user.uid}
+                </p>
+                <p className="text-[11px] text-ink-muted leading-snug">
+                  Set this value as <span className="font-mono text-ink-secondary">ADMIN_UID</span> in Settings to authorize this account.
+                </p>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={handleSignIn}
@@ -89,7 +167,7 @@ export function LoginView({ onNavigateHome }: LoginViewProps) {
                 onClick={signOut}
                 className="w-full py-2 px-4 text-xs font-medium text-ink-secondary hover:text-ink border border-hairline bg-card rounded-lg transition-colors cursor-pointer"
               >
-                Sign out of {user.email}
+                Sign out of {user.email || user.uid}
               </button>
             )}
 

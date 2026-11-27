@@ -17,6 +17,7 @@ import { auth, googleAuthProvider } from '../lib/firebase.ts';
 interface AuthContextValue {
   user: User | null;
   isAdmin: boolean;
+  adminConfigured: boolean;
   authLoading: boolean;
   authError: string | null;
   getToken: () => Promise<string | null>;
@@ -28,38 +29,43 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
  * Manages Firebase Authentication state in React memory (never localStorage)
- * and verifies with the Express backend whether the signed-in user is the admin.
+ * and verifies with the Express backend whether the signed-in user is authorized as admin.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminConfigured, setAdminConfigured] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const verifySessionWithServer = useCallback(async (firebaseUser: User | null) => {
-    if (!firebaseUser) {
-      setIsAdmin(false);
-      setAuthLoading(false);
-      return false;
-    }
-
     try {
-      const token = await firebaseUser.getIdToken();
-      const response = await fetch('/api/auth/session', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const headers: Record<string, string> = {};
+      if (firebaseUser) {
+        const token = await firebaseUser.getIdToken();
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/auth/session', { headers });
       if (!response.ok) {
         setIsAdmin(false);
-        return false;
+        return { isAdmin: false, adminConfigured: true };
       }
-      const data = (await response.json()) as { isAdmin: boolean };
-      setIsAdmin(Boolean(data.isAdmin));
-      return Boolean(data.isAdmin);
+
+      const data = (await response.json()) as {
+        isAdmin?: boolean;
+        adminConfigured?: boolean;
+      };
+      const configured =
+        typeof data.adminConfigured === 'boolean' ? data.adminConfigured : true;
+      const adminOk = Boolean(firebaseUser && data.isAdmin);
+
+      setAdminConfigured(configured);
+      setIsAdmin(adminOk);
+      return { isAdmin: adminOk, adminConfigured: configured };
     } catch {
       setIsAdmin(false);
-      return false;
+      return { isAdmin: false, adminConfigured: true };
     } finally {
       setAuthLoading(false);
     }
@@ -82,13 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuthError(null);
     try {
       const result = await signInWithPopup(auth, googleAuthProvider);
-      const adminOk = await verifySessionWithServer(result.user);
-      if (!adminOk) {
-        setAuthError(
-          `Signed in as ${result.user.email ?? 'this account'}, which does not match the configured ADMIN_EMAIL.`
-        );
+      const session = await verifySessionWithServer(result.user);
+      if (!session.isAdmin) {
+        if (!session.adminConfigured) {
+          setAuthError(
+            'Admin access is locked because ADMIN_UID or ADMIN_EMAIL is not configured on the server.'
+          );
+        } else {
+          setAuthError(
+            `Signed in as ${result.user.email ?? 'this account'}, which does not match the configured admin account.`
+          );
+        }
       }
-      return adminOk;
+      return session.isAdmin;
     } catch (error) {
       const message =
         error instanceof Error && error.message.includes('popup-closed-by-user')
@@ -111,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAdmin,
+        adminConfigured,
         authLoading,
         authError,
         getToken,

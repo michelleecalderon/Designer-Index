@@ -13,9 +13,11 @@ import {
 } from './src/db/resources.ts';
 import { getOrCreateUser } from './src/db/users.ts';
 import {
+  assertAdminConfigAtStartup,
   attachOptionalAuth,
   type AuthRequest,
-  isAdminEmail,
+  isAdminConfigured,
+  isAdminUser,
   requireAdmin,
 } from './src/middleware/auth.ts';
 import { classifyResourceInput } from './src/lib/ai-classifier.ts';
@@ -56,6 +58,7 @@ function checkSearchRateLimit(ip: string): boolean {
 }
 
 async function startServer() {
+  assertAdminConfigAtStartup();
   const app = express();
   const httpServer = http.createServer(app);
 
@@ -74,12 +77,13 @@ async function startServer() {
     });
   });
 
-  // Verifies the caller's Firebase ID token and reports whether they match ADMIN_EMAIL.
+  // Verifies the caller's Firebase ID token and reports whether they match ADMIN_UID or verified ADMIN_EMAIL.
   app.get('/api/auth/session', attachOptionalAuth, async (req: AuthRequest, res) => {
-    const admin = isAdminEmail(req.user?.email);
-    if (admin && req.user?.uid && req.user.email) {
+    const adminConfigured = isAdminConfigured();
+    const admin = isAdminUser(req.user);
+    if (admin && req.user?.uid) {
       try {
-        await getOrCreateUser(req.user.uid, req.user.email);
+        await getOrCreateUser(req.user.uid, req.user.email ?? '');
       } catch (error) {
         console.error('Failed to sync admin user record:', error);
       }
@@ -87,14 +91,16 @@ async function startServer() {
     res.json({
       authenticated: Boolean(req.user),
       isAdmin: admin,
+      adminConfigured,
       email: req.user?.email ?? null,
+      uid: req.user?.uid ?? null,
     });
   });
 
   // Returns public resources (is_public = true) to visitors, or all resources to the verified admin.
   app.get('/api/resources', attachOptionalAuth, async (req: AuthRequest, res) => {
     try {
-      const admin = isAdminEmail(req.user?.email);
+      const admin = isAdminUser(req.user);
       const items = admin
         ? await getAllResourcesForAdmin()
         : await getPublicResources();
@@ -238,7 +244,7 @@ async function startServer() {
       });
     }
 
-    const admin = isAdminEmail(req.user?.email);
+    const admin = isAdminUser(req.user);
     const cacheKey = rawQuery.toLowerCase();
     if (!admin) {
       const cached = publicSearchCache.get(cacheKey);
